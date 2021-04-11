@@ -54,29 +54,36 @@ def get_remove_idx(lagged_stimulus, remove_nan=True):
 # Cell
 
 def make_lagged_stimulus(stimulus, n_lags, fill_value=np.nan):
-    '''Generates a lagged stimulus representation by adding nans'''
-    lagged_reps = [np.vstack([np.full((lag_i, stimulus.shape[1]), fill_value), stimulus[:-lag_i]])
-                                 for lag_i in range(1, n_lags)]
+    '''Make lagged stimulus by augmenting the stimulus matrix and cutting samples from begin and end.
+    
+    Consider lagging a matrix as placing a window over the original time series, shifting it one step forward in time, copying the content of the window and placing it beside the original time series. This process is repeated n_lag step times. As no new data is generated in th process implemented here, the window must be n_lag_steps shorter than the original time series. 
+    
+    
+    Deletes one sample of the original time series per lag step such that the columns with the longest lag start at the original time point zero. As the number of stimulus samples is limited and no new data are generated,  samples have to be deleted from the begin of the time series of all but the longest lag steps. Thus final stimulus time series has length original_stimulus.shape[0]-n_lag_steps. The onsets of the lags vary from time point zero to time point n_lags.   
+    '''
+    lagged_reps = [np.vstack([np.full((lag_i, stimulus.shape[1]), fill_value),
+                              stimulus[:-lag_i]]) 
+                   for lag_i in range(1, n_lags)]
     return np.hstack([stimulus]+lagged_reps)
 
 # Cell
 def generate_lagged_stimulus(stimulus, fmri_samples, TR, stim_TR,
                              lag_time=None, start_time=0., offset_stim=0.,
                              fill_value=np.nan):
-    '''Generates a lagged stimulus representation temporally aligned with the fMRI data
+    '''Predictor with temporally lagged features and aligned target time series
 
-    Parameters
+    Operates on the predictor (e.g. spectrogram) to compensates lags in predictor (stimulus) start relative to target start (e.g. fMRI, see start_time). Can change length introduce an offest  and control over the length of the time series from start (see offset_stim). Then creates and returns the aligned  the Does the actual work 
 
-        stimuli : ndarray, stimulus representation of shape (samples, features)
-        fmri_samples : int, samples of corresponding fmri run
-        TR : int, float, repetition time of the fMRI data in seconds
-        stim_TR : int, float, repetition time of the stimulus in seconds
-        lag_time : int, float, or None, optional,
+    Args:
+        stimuli: Stimulus representation of shape samples by features. (float)
+        fmri_samples: int, samples of corresponding fmri run
+        TR: int, float, repetition time of the fMRI data in seconds
+        stim_TR: int, float, repetition time of the stimulus in seconds
+        lag_time: 
                lag to introduce for stimuli in seconds,
-               if no lagging should be done set this to TR or None
-        start_time :  int, float, optional, default 0.
-                  starting time of the stimulus relative to fMRI recordings in seconds
-                  appends fill_value to stimulus representation to match fMRI and stimulus
+               if no lagging should be done set this to TR or None (int, float, or None, optional)
+        start_time: starting time of the stimulus relative to fMRI recordings in seconds. 
+                  appends fill_value to stimulus representation to match fMRI and stimulus. (int, float, optional, default 0)
         offset_stim : int, float, optional, default 0.
                   time to offset stimulus relative to fMRI in the lagged stimulus,
                   i.e. when predicting fmri at time t use only stimulus features
@@ -95,20 +102,29 @@ def generate_lagged_stimulus(stimulus, fmri_samples, TR, stim_TR,
         raise ValueError('Stimulus TR is larger than fMRI TR')
     # check if result is close to an integer
     if not np.isclose(stim_samples_per_TR, np.round(stim_samples_per_TR)):
-        warnings.warn('Stimulus timing and fMRI timing do not align. '
-        'Stimulus samples per fMRI samples: {0} for stimulus TR {1} and fMRI TR {2}. '
-        'Proceeds by rounding stimulus samples '
-        'per TR.'.format(stim_samples_per_TR, stim_TR, TR), RuntimeWarning)
+        warnings.warn('Stimulus timing and fMRI timing do not align. Stimulus'
+                      ' samples per fMRI samples: {0} for stimulus TR {1} and'
+                      ' fMRI TR {2}.Proceeds by rounding stimulus samples per'
+                      'TR to next integer.'.
+                      format(stim_samples_per_TR, stim_TR, TR),
+                      RuntimeWarning)        
     stim_samples_per_TR = int(np.round(stim_samples_per_TR))
+    
+    # Handle lag_time. lag_time == TR means no lag below 
     if lag_time is None:
         lag_time = TR
+        
     if np.isclose(lag_time, 0.):
-        warnings.warn('lag_time set to 0 - to disable lagging set lag_time either to None or TR ({}).'
-                      'Defaulting to lag_time=None.'.format( TR))
+        warnings.warn('lag_time set to 0. To disable lagging set lag_time'
+                      'either to None or TR ({}).'.format(TR))
         lag_time = TR
 
     if lag_time < TR:
-        warnings.warn('lag_time ({}) should not be smaller than TR ({}).'.format(lag_time, TR))
+        warnings.warn('lag_time ({}s) should not be smaller than TR({}s).'.
+                      format(lag_time, TR))
+        #TODO ancpJR: Warning issued but seems to have no consequence
+        
+        
     # check if lag time is multiple of TR
     if not np.isclose(lag_time / TR, np.round(lag_time / TR)):
         raise ValueError('lag_time should be a multiple of TR so '
@@ -142,79 +158,140 @@ def generate_lagged_stimulus(stimulus, fmri_samples, TR, stim_TR,
 
     # check if lagging should be done
     if lag_time != TR:
-        stimulus = make_lagged_stimulus(stimulus, lag_TR, fill_value=fill_value)
+        stimulus = make_lagged_stimulus(stimulus, lag_TR,
+                                        fill_value=fill_value)
 
     return stimulus
 
 # Cell
-def make_X_Y(stimuli, fmri, TR, stim_TR, lag_time=6.0, start_times=None, offset_stim=0., fill_value=np.nan, remove_nans=True):
+def make_X_Y(stimuli, fmri, TR, stim_TR, lag_time=6.0, stim_start_times=None, offset_stim=0., fill_value=np.nan, remove_nans=True):
     '''Creates (lagged) features and fMRI matrices concatenated along runs
+    
+    Makes X and Y matrices for the encoding model Y=X*B. X would be a matrix
+    of stimulus time series which serve as predictors for Y, the target time
+    series, which can be but is not necessarily a BOLD time series.
+    
+    The X-Matrix can be augmented by lagged versions of it in order to account
+    for the uncertainty of a potential delay of the response in Y relative to
+    the events in X (e.g. the hrf delay) and to account for integration of
+    events in X over an interval in the response measured single time points
+    (e.g.due to the length of the hrf each timepoint is a sum of current and
+    past reponses). The augmentation is done such that the earliest samples
+    are deleted from the original time series. The first augmented column in 
+    X gets the one step preceeding samples prepended. The second augmented
+    column gets the two step preceeding samples prepended and so on. 
+    Therefore the timeseries is n-lags-1 shorter than the original time
+    series. 
 
-    Parameters
+    Args:
+        stimuli: List of predictors a.k.a. stimulus representations. Each list
+          entry is a matrix with time points along the rows and stimulus
+          features in the columns. (list)
+         
+        fmri: List of target e.g. fMRI brain activation ndarrays. Time should
+        run along rows (list)
+        
+        TR: Repetition time (sample duration) of the target (e.g. fMRI) data
+          in seconds. (int, float)
+        
+        stim_TR: Repetition time of the stimulus in seconds. Integer multiple
+          of TR and <= TR. (int, float)
+        
+        lag_time: Maximum lag duration for predictor (stimulus). Each lag step
+          adds one shifted copy of the original predictor matrix and shortens
+          the target and predictor matrixes by one TR taken from the begin of
+          the time series. Lag time is expexpted to be an integer multiple of
+          TR. No lagging is added for lag_time=TR or lag_time=None.
+          (optional,int, float, default 6.0)
 
-        stimuli : list, list of stimulus representations
-        fmri : list, list of fMRI ndarrays
-        TR : int, float, repetition time of the fMRI data in seconds
-        stim_TR : int, float, repetition time of the stimulus in seconds
-        lag_time : int, float, optional,
-                   lag to introduce for stimuli in seconds,
-                   if no lagging should be done set this to TR
-        start_times : list, list of int, float, optional,
-                      starting time of the stimuli relative to fMRI recordings in seconds
-                      appends fill_value to stimulus representation to match fMRI and stimulus
-        offset_stim : int, float, optional,
-                      time to offset stimulus relative to fMRI in the lagged stimulus,
-                      i.e. when predicting fmri at time t use only stimulus features
-                      before t-offset_stim. This reduces the number of time points used
-                      in the model.
-        fill_value : int, float, or any valid numpy array element, optional,
-                     appends fill_value to stimulus array to account for starting_time
-                     use np.nan here with remove_nans=True to remove fmri/stimulus samples where no stimulus was presented
-        remove_nans : bool, bool or float 0<=remove_nans<=1, optional
-                      True/False indicate whether to remove all or none
-                      stimulus/fmri samples that contain nans
-                      a proportion keeps all samples in the lagged stimulus that have
-                      lower number of nans than this proportion.
-                      Replace nans with zeros in this case.
+        stim_start_times: Start time of the predictor (stimulus) relative to
+          the target time series (fMRI) in seconds. One for each entry in list
+          of stimuli. Prepends fill_value to stimulus representation to match
+          target and predictor time series. 
+          (list, int, float, optional, default None)
+          TODO ancpJR: Does this mean it can only take positive values?
+          
+        offset_stim : Time to offset stimulus relative to fMRI in the lagged
+          stimulus, i.e. when predicting fmri at time t use only stimulus
+          features before (???) t-offset_stim. This reduces the number of time
+          points used in the model (correct ???). 
+          (int, float, optional, default 0, only positive values)
+          TODO ancpJR: This actually prepends the filler values to the
+          predictor matrix. Effect similar to stim_start_time????
+          
+        fill_value : Value to prepend to stimulus array to account for
+          stim_start_time and/or offset_stim. Use np.nan with 
+          remove_nans=True to remove fmri/stimulus samples at the begin where
+          no stimulus was presented.make_lagged_stimulus
+          (int, float, or any valid numpy array element, optional, 
+           default np.nan)
+          
+        remove_nans : True/False indicate whether to remove all or none
+          stimulus/fmri samples that contain nans. A value between 0 and 1
+          keeps all samples in the lagged stimulus that have a lower number of
+          nans than this proportion. Replace nans with zeros in this case.
+          (bool, bool or float 0<=remove_nans<=1, optional, default True)
 
-    Returns:
-    tuple of two ndarrays,
-    the first element are the (lagged) stimuli,
-    the second element is the aligned fMRI data
+    Returns: 
+        X: The (lagged) predictor (stimulus) matrices. (list of ndarrays)     
+
+        Y: The aligned target (fMRI) matrices. (list of ndarrays)
+    
+    ancpJR fixed naming: stim_start_times
+    TODO ancpJR: Check if TR and stim_TR need to be equal. Sometimes only lengths of preditor and target matrixes are compared which only works when both are equal.
+    TODO ancpJR: Check what happens if any of the temporal parameter is not an integer multuple of TR 
     '''
+    
+    #Same number of runs for predictor ans target available?
     if len(stimuli) != len(fmri):
-        raise ValueError('Stimulus and fMRI need to have the same number of runs. '
-        'Instead fMRI has {} and stimulus {} runs.'.format(len(fmri), len(stimuli)))
+        raise ValueError('Stimulus and fMRI need to have the same number of'
+                         ' runs. FMRI has {} and stimulus {}runs.'
+                         .format(len(fmri), len(stimuli)))
+    #Same muber of predictor features per run?
     n_features = stimuli[0].shape[1]
-    if not np.all(np.array([stim.shape[1] for stim in stimuli]) == n_features):
+    if not np.all(np.array([stim.shape[1] 
+                            for stim in stimuli]) == n_features):
         raise ValueError('Stimulus has different number of features per run.')
 
+    #Process each run
     lagged_stimuli = []
     aligned_fmri = []
     for i, (stimulus, fmri_run) in enumerate(zip(stimuli, fmri)):
         stimulus = generate_lagged_stimulus(
             stimulus, fmri_run.shape[0], TR, stim_TR, lag_time=lag_time,
-            start_time=start_times[i] if start_times else 0.,
+            start_time=stim_start_times[i] if stim_start_times else 0.,
             offset_stim=offset_stim, fill_value=fill_value)
+        
         # remove nans in stim/fmri here
+        #TODO ancpJR: where would they com from. Delete?
         if remove_nans:
             remove_idx = get_remove_idx(stimulus, remove_nans)
             stimulus = np.delete(stimulus, remove_idx, axis=0)
             fmri_run = np.delete(fmri_run, remove_idx, axis=0)
 
         # remove fmri samples recorded after stimulus has ended
+        # TODO ancpJr: This code block assumes that TR == stim_TR. 
+        # (compares indices). Why allow two values then? 
         if fmri_run.shape[0] != stimulus.shape[0]:
-            # check if the difference is due to offsetting and warn if it is not
-            if np.round(offset_stim/TR) < abs(fmri_run.shape[0] - stimulus.shape[0]):
-                warnings.warn('fMRI data and stimulus samples differ.'
-                ' Removing additional fMRI/stimulus samples. This could mean that you recorded '
-                'after stimulus ended, stopped recording early, or that something went wrong in the '
-                'preprocessing. fMRI: {}s stimulus: {}s'.format(
-                    TR*fmri_run.shape[0], TR*stimulus.shape[0]), RuntimeWarning)
+            # check if the difference is due to offsetting and warn if not
+            if np.round(offset_stim/TR) < abs(fmri_run.shape[0] - 
+                                              stimulus.shape[0]):
+                warnings.warn('Target (fMRI) time series longer than '
+                              'predictor (stimulus) time series. Now removing'
+                              'excess target fMRI/stimulus samples from the'
+                              'end of the longer time series.'
+                              'Target (fMRI): {}s predictor (stimulus): {}s'
+                              .format(TR*fmri_run.shape[0],
+                                      TR*stimulus.shape[0]), RuntimeWarning)
             if fmri_run.shape[0] > stimulus.shape[0]:
                 fmri_run = fmri_run[:-(fmri_run.shape[0]-stimulus.shape[0])]
             else:
                 stimulus = stimulus[:-(stimulus.shape[0]-fmri_run.shape[0])]
+        
+        # Build the list of run time series of predictor and target.
         lagged_stimuli.append(stimulus)
         aligned_fmri.append(fmri_run)
+        
+    # TODO ancpJR: This seems to convert the list of runs into a long numpy 
+    # array. Should be avoided to make leave-on-run-out cv possible      
     return np.vstack(lagged_stimuli), np.vstack(aligned_fmri)
