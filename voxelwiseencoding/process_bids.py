@@ -422,15 +422,16 @@ def run_model_for_subject(bold_files, bold_json, stim_tsv, stim_json,
     
     # temporally align stimulus and fmri data
     # ancpJR: The image o stim_data lagged does look a bit odd
-    stim_data_lagged, preprocessed_bold = make_X_Y(
+    stim_data_lagged, preprocessed_bold, run_start_indices = make_X_Y(
         stim_data, preprocessed_bold, bold_meta['RepetitionTime'],
         stim_TR, stim_start_times=stim_start_times, **lagging_params)
 
     # compute ridge and scores for folds
-    models, scores, bold_prediction, train_indices, test_indices =\
+    models, scores, bold_prediction, train_indices, test_indices = \
         get_model_plus_scores(stim_data_lagged, preprocessed_bold,
-                                           estimator=args['estimator'],
-                                           **encoding_params)
+                              estimator=args['estimator'],
+                              run_start_indices=run_start_indices,
+                              **encoding_params)
         
     return models, scores, mask, bold_prediction, train_indices, test_indices
 
