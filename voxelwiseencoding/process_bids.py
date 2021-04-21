@@ -18,8 +18,8 @@ import subprocess
 import nibabel
 import numpy
 from glob import glob
-from .preprocessing import preprocess_bold_fmri, make_X_Y
-from .encoding import get_model_plus_scores
+from preprocessing import preprocess_bold_fmri, make_X_Y
+from encoding import get_model_plus_scores
 from sklearn.linear_model import RidgeCV
 import json
 import joblib
@@ -200,57 +200,63 @@ def run(command, env={}):
 
 # down to here old helper functions from Moritz
 
-# ancpJR 
-#from bids import BIDSLayout
-import bids # the pybids functions
+# ancpJR
 
 def get_bids_filenames_for_econding(**kwargs):
     '''Returns file names for encoding modelling in BIDS directory structure.
-
-The method takes as input BIDS compliant label value/pairs to select the filenames of the bold and stimulus files, including the corresponding json files with metadata. BOLD files have nifti format and hold the time series of the functional scans. They are recognized by their label "_bold" and extension "nii". Stimulus files are recognized by the label "_stim" and extension ".tsv". The names of the BOLD and stimulus files have the same label/value pairs. Thus they live in same directory. 
-
-Args:
-    **args : A dictionary holding BIDS the entries listed below
-             arg['bids_dir']='/home/myhome/DATA/NameOfStudy/' The path to the 
-             BIDS directory. The BIDS directory is where the file  
-             dataset_description.json, the (raw) subject and the derivatives
-             folders are. (string)  
-             arg['sub']=['OL3485'] The BIDS subject label (string)
-             arg['ses'] = ['01'] The BIDS session label (string)
-             arg['task'] = ['continuous'] The BIDS task label (string)
-             arg['run'] = ['01'] The BIDS label for individual runs (string or
-             list of strings for multiple runs)
-             arg['scope'] = 'raw' pyBIDS defines a scope from where the
-             filenames are extracted. Examples are 'raw' for the unprocessed
-             data, 'derivatives' for processed data in the derivatives folder,
-             the name of a pipleine that produced the derivative like  
-             'fmriprep'. (string)
-             arg['bold_suffix'] = 'bold' The BIDS suffix for files containing
-             BOLD-data. (string)
-             arg['bold_extension'] = ['.nii', '.nii.gz'] BIDS extension for
-             BOLD data. (string or list of strings)
-             arg['stim_suffix'] = 'stim' The BIDS suffix for stimulus files.
-             (string)
-             arg['stim_extension'] = ['.tsv', '.tsv.gz'] The BIDS extension for
-             stimulus files. (string or list of strings)  
-             arg['json_extension'] = 'json' The BIDS extension for json sidecar
-             files to BOLD and stimulus files. They hold the metadata (string)
     
-Returns:
-    bold_files : A list of filenames holding the BOLD files matching the 
-                 search pattern. Includes path. (list of strings)         
-    bold_jsons : A list of filenames holding the _bold json sidecar files
-                 matchings the search pattern. Includes path. (list of strings) 
-    stim_tsv :   A list of filenames holding the stimulus files matching the 
-                 search pattern. Includes path. (list of strings)
-    stim_json :  A list of filenames holding the stimulus json sidecar files
-                 matchings the search pattern. Includes path. (list of strings) 
-
-TODO (ancpJR):
-    So far we assume BOLD and corresponding stimulus files live in the same 
-    directory and have the same descriptive names. This is only a subset of
-    BIDS definitions    
-'''
+    The method takes as input BIDS compliant label value/pairs to select the 
+    filenames of the bold and stimulus files, including the corresponding json 
+    files with metadata. BOLD files have nifti format and hold the time series
+    of the functional scans. They are recognized by their label "_bold" and
+    extension "nii". Stimulus files are recognized by the label "_stim" and
+    extension ".tsv". The names of the BOLD and stimulus files have the same
+    label/value pairs. Thus they live in same directory. 
+    
+    Args:
+        **args : A dictionary holding BIDS the entries listed below
+                 arg['bids_dir']='/home/myhome/DATA/NameOfStudy/' The path to the 
+                 BIDS directory. The BIDS directory is where the file  
+                 dataset_description.json, the (raw) subject and the derivatives
+                 folders are. (string)  
+                 arg['sub']=['OL3485'] The BIDS subject label (string)
+                 arg['ses'] = ['01'] The BIDS session label (string)
+                 arg['task'] = ['continuous'] The BIDS task label (string)
+                 arg['run'] = ['01'] The BIDS label for individual runs (string or
+                 list of strings for multiple runs)
+                 arg['scope'] = 'raw' pyBIDS defines a scope from where the
+                 filenames are extracted. Examples are 'raw' for the unprocessed
+                 data, 'derivatives' for processed data in the derivatives folder,
+                 the name of a pipleine that produced the derivative like  
+                 'fmriprep'. (string)
+                 arg['bold_suffix'] = 'bold' The BIDS suffix for files containing
+                 BOLD-data. (string)
+                 arg['bold_extension'] = ['.nii', '.nii.gz'] BIDS extension for
+                 BOLD data. (string or list of strings)
+                 arg['stim_suffix'] = 'stim' The BIDS suffix for stimulus files.
+                 (string)
+                 arg['stim_extension'] = ['.tsv', '.tsv.gz'] The BIDS extension for
+                 stimulus files. (string or list of strings)  
+                 arg['json_extension'] = 'json' The BIDS extension for json sidecar
+                 files to BOLD and stimulus files. They hold the metadata (string)
+        
+    Returns:
+        bold_files : A list of filenames holding the BOLD files matching the 
+                     search pattern. Includes path. (list of strings)         
+        bold_jsons : A list of filenames holding the _bold json sidecar files
+                     matchings the search pattern. Includes path. (list of strings) 
+        stim_tsv :   A list of filenames holding the stimulus files matching the 
+                     search pattern. Includes path. (list of strings)
+        stim_json :  A list of filenames holding the stimulus json sidecar files
+                     matchings the search pattern. Includes path. (list of strings) 
+    
+    TODO (ancpJR):
+        So far we assume BOLD and corresponding stimulus files live in the same 
+        directory and have the same descriptive names. This is only a subset of
+        BIDS definitions    
+    '''
+    #from bids import BIDSLayout
+    import bids # the pybids functions
     #Avoid FutureWarning about dots in file extensions  
     bids.config.set_option('extension_initial_dot', True)
 
@@ -352,45 +358,17 @@ def run_model_for_subject(bold_files, bold_json, stim_tsv, stim_json,
         list of Ridge regressions, scores per voxel per fold
 
     '''
-    #ancpJR check what we need of this
-    # check some input arguments and bring the in a defined state if undefined
-    # if bold_prep_kwargs is None:
-    #     bold_prep_kwargs = {}
-    # if encoding_kwargs is None:
-    #     encoding_kwargs = {}
-    # if preprocess_kwargs is None:
-    #     preprocess_kwargs = {}
-    
     # Copy kwargs just for safety
     args=kwargs.copy()
     
-    # First get some required parameters from json files
-    bold_prep_params={}
-    # get BOLD preprocessing parameters from json 
-    if args['bold_prep_params_filename'] != None:
-        with open(args['bold_prep_params_filename'], 'r') as fl:
-            bold_prep_params = json.load(fl)
-    else:
-        bold_prep_params = None 
-    
-    lagging_params={}
-    if args['lagging_params_filename'] != None:
-        with open(args['lagging_params_filename'],'r') as fl:
-           lagging_params=json.load(fl)
-    else:
-        lagging_params = None 
-    
-    encoding_params = {}
-    if args['encoding_params_filename'] !=None:
-        with open(args['encoding_params_filename'], 'r') as fl:
-            encoding_params = json.load(fl)
-    else:
-        encoding_params = None 
+    bold_prep_params = args['bold_prep_params']
+    lagging_params = args['lagging_params']
+    encoding_params = args['encoding_params']
     
     #metadata from the first BOLD file only. May not problematic as long as
     #only one RT is used in all nifties
     bold_meta={}
-    with open(bold_json[0],'r') as fp:
+    with open(args['bold_json'][0],'r') as fp:
         bold_meta = json.load(fp)
 
     # get an epi mask
@@ -457,5 +435,4 @@ def run_voxelwise_encoding(bold_files, bold_json,stim_tsv, stim_json,
                                   stim_tsv, stim_json, **args)
 
     # TODO (ancpJR): save the results in BIDS compatible format
-    
-    
+    return ridges, scores, mask, bold_prediction, train_indices, test_indices

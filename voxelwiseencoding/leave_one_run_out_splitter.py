@@ -27,7 +27,8 @@ class LeaveOneRunOutSplitter():
             Training data, where n_samples is the number of samples
             and n_features is the number of features.
         y : array-like of shape (n_samples,), default=None
-            The target variable for supervised learning problems.
+            The target variable for supervised learning problems. Exists for
+            compatibility and can be ignored in this implementation.
             
         Yields
         ------

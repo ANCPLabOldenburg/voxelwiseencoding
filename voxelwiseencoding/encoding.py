@@ -33,7 +33,6 @@ def get_model_plus_scores(X, y, estimator=None, cv=None, scorer=None,
     '''Returns multiple estimator trained in a cross-validation on n_splits of the data and scores on the left-out folds
 
     Parameters
-
         X : ndarray of shape (samples, features)
         y : ndarray of shape (samples, targets)
         estimator : None or estimator object that implements fit and predict
@@ -41,7 +40,8 @@ def get_model_plus_scores(X, y, estimator=None, cv=None, scorer=None,
         cv : int, None, or a cross-validation object that implements a split method, default is None, optional.
              int specifies the number of cross-validation splits of a KFold cross validation
              None defaults to a scikit-learn KFold cross-validation with default settings
-             a scikit-learn-like cross-validation object needs to implement a split method for X and y
+             a scikit-learn-like cross-validation object needs to implement a split method for X and y.
+             Will be ignored if run_start_indices is not None.
         scorer : None or any sci-kit learn compatible scoring function, optional
                  default uses product moment correlation
         voxel_selection : bool, optional, default True
@@ -53,12 +53,16 @@ def get_model_plus_scores(X, y, estimator=None, cv=None, scorer=None,
                      if False, scores will be computed on the training set
         run_start_indices: list of int, optional, default None
                      Start index of each run which is used to group data into 
-                     cross-validation folds.
+                     cross-validation folds. If provided, a leave-one-run-out
+                     cross-validation splitter will be used and parameter cv
+                     will be ignored.
         kwargs : additional parameters that will be used to initialize RidgeCV if estimator is None
+        
     Returns
         tuple of n_splits estimators trained on training folds or single estimator if validation is False
-        and scores for all concatenated out-of-fold predictions'''
-    from sklearn.utils.estimator_checks import check_regressor_multioutput
+        and scores for all concatenated out-of-fold predictions
+    '''
+    #from sklearn.utils.estimator_checks import check_regressor_multioutput
     if scorer is None:
         scorer = product_moment_corr
     if run_start_indices is not None:
