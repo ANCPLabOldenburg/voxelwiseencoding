@@ -18,8 +18,8 @@ import subprocess
 import nibabel
 import numpy
 from glob import glob
-from preprocessing import preprocess_bold_fmri, make_X_Y
-from encoding import get_model_plus_scores
+from voxelwiseencoding.preprocessing import preprocess_bold_fmri, make_X_Y
+from voxelwiseencoding.encoding import get_model_plus_scores
 from sklearn.linear_model import RidgeCV
 import json
 import joblib

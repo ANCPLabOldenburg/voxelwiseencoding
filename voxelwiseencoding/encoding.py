@@ -66,7 +66,7 @@ def get_model_plus_scores(X, y, estimator=None, cv=None, scorer=None,
     if scorer is None:
         scorer = product_moment_corr
     if run_start_indices is not None:
-        from leave_one_run_out_splitter import LeaveOneRunOutSplitter
+        from voxelwiseencoding.leave_one_run_out_splitter import LeaveOneRunOutSplitter
         cv = LeaveOneRunOutSplitter(run_start_indices)
     elif cv is None:
         cv = KFold()

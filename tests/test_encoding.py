@@ -134,7 +134,7 @@ def test_encoding_synthethic_data(predictor_filename, lags=None,
     
     #Read the corresponding json
     predictor_json_filename=predictor_no_extension+'.json'
-    with (open(predictor_json_filename,"r") as fp):
+    with open(predictor_json_filename,"r") as fp:
         predictor_params=json.load(fp)
         
     #convert sampling frequency to duration
@@ -167,7 +167,7 @@ def test_encoding_synthethic_data(predictor_filename, lags=None,
     stim_data_convolved_as_list.append(stim_data_convolved)
     
     # This function seems to loose samples. Seem to be missing at the start
-    X,y = preproc.make_X_Y(stim_data_as_list, stim_data_convolved_as_list,
+    X,y,_ = preproc.make_X_Y(stim_data_as_list, stim_data_convolved_as_list,
                            sample_duration, sample_duration)
     models, score_list, target_prediction, train_indices, test_indices =\
         enc.get_model_plus_scores(X, y, cv=2)

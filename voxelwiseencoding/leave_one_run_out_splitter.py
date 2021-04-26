@@ -39,7 +39,7 @@ class LeaveOneRunOutSplitter():
         """
         all_indices = np.arange(X.shape[0])
         n_runs = len(self.run_start_indices)
-        for i in n_runs:
+        for i in range(n_runs):
             start_index = self.run_start_indices[i]
             # End index of each run is one before the start of the next run.
             # For the last run, the end index is the index of the last sample in X.
