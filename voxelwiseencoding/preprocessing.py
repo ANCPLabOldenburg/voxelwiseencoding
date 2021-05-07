@@ -164,7 +164,8 @@ def generate_lagged_stimulus(stimulus, fmri_samples, TR, stim_TR,
     return stimulus
 
 # Cell
-def make_X_Y(stimuli, fmri, TR, stim_TR, lag_time=6.0, stim_start_times=None, offset_stim=0., fill_value=np.nan, remove_nans=True):
+def make_X_Y(stimuli, fmri, TR, stim_TR, lag_time=6.0, stim_start_times=None, 
+             offset_stim=0., fill_value=np.nan, remove_nans=True):
     '''Creates (lagged) features and fMRI matrices concatenated along runs
     
     Makes X and Y matrices for the encoding model Y=X*B. X would be a matrix

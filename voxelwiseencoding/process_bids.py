@@ -18,8 +18,8 @@ import subprocess
 import nibabel
 import numpy
 from glob import glob
-from voxelwiseencoding.preprocessing import preprocess_bold_fmri, make_X_Y
-from voxelwiseencoding.encoding import get_model_plus_scores
+from preprocessing import preprocess_bold_fmri, make_X_Y
+from encoding import get_model_plus_scores
 from sklearn.linear_model import RidgeCV
 import json
 import joblib
@@ -316,43 +316,42 @@ def get_bids_filenames_for_econding(**kwargs):
 #                           stim_tsv, stim_json, mask=None, bold_prep_kwargs=None,
 #                           preprocess_kwargs=None, estimator=None, encoding_kwargs=None,
 #                           **kwargs):
-def run_model_for_subject(bold_files, bold_json, stim_tsv, stim_json,
-                          **kwargs):
+def run_model_for_subject(**kwargs):
     '''Runs voxel-wise encoding model for a single subject and returns Ridges and scores
 
     Parameters
-
-        bold_files :    A list of the BOLD nifties to process (positional)
-        bold_json :     A list of corresponding json files containing the 
-                        relevant metadata. (positional)
-        stim_tsv :      A list of stimulus files (containing e.g the
-                        spectrogram
-                        or modulogram of the sound played)(postional)
-        stim_json :     A list of the corresponding json holding the stimulus 
-                        metadata (e.g. descriptors of the columns in the 
-                        tsv(.gz)) (positional)
-        subject_label : the BIDS subject label (in kwargs) 
-        bids_dir :      the path to the BIDS directory (in kwargs)
-        mask :          path to mask file or 'epi' if an epi mask should be 
-                        computed from the first BOLD run (in kwargs)
-                        
-        bold_prep_kwargs : None or dict containing the parameters for 
-                        preprocessing the BOLD files everything that is
-                        accepted by nilearn's clean function is an acceptable
-                        parameter
-        preprocess_kwargs : None or dict containing the parameters for lagging
-                        and aligning fMRI and stimulus
-                        acceptable parameters are ones used by
-                        preprocessing.make_X_Y
-        estimator : None or sklearn-like estimator to use as an encoding model
-                    default uses RidgeCV with individual alpha per target when
-                    possible
-        encoding_kwargs : None or dict containing the parameters for
-                    evaluating the encoding model. Valid parameters are the
-                    ones accepted by encoding.get_model_plus_scores
-
-        kwargs : additional BIDS specific arguments such as task, ses, desc,
-        and recording
+        kwargs :
+            bold_files :    A list of the BOLD nifties to process
+            bold_json :     A list of corresponding json files containing the 
+                            relevant metadata.
+            stim_tsv :      A list of stimulus files (containing e.g the
+                            spectrogram
+                            or modulogram of the sound played)
+            stim_json :     A list of the corresponding json holding the stimulus 
+                            metadata (e.g. descriptors of the columns in the 
+                            tsv(.gz))
+            subject_label : the BIDS subject label
+            bids_dir :      the path to the BIDS directory
+            mask :          path to mask file or 'epi' if an epi mask should be 
+                            computed from the first BOLD run 
+                            
+            bold_prep_kwargs : None or dict containing the parameters for 
+                            preprocessing the BOLD files everything that is
+                            accepted by nilearn's clean function is an acceptable
+                            parameter
+            preprocess_kwargs : None or dict containing the parameters for lagging
+                            and aligning fMRI and stimulus
+                            acceptable parameters are ones used by
+                            preprocessing.make_X_Y
+            estimator : None or sklearn-like estimator to use as an encoding model
+                        default uses RidgeCV with individual alpha per target when
+                        possible
+            encoding_kwargs : None or dict containing the parameters for
+                        evaluating the encoding model. Valid parameters are the
+                        ones accepted by encoding.get_model_plus_scores
+    
+            additional BIDS specific arguments such as task, ses, desc,
+            and recording
 
     Returns
         list of Ridge regressions, scores per voxel per fold
@@ -368,7 +367,7 @@ def run_model_for_subject(bold_files, bold_json, stim_tsv, stim_json,
     #metadata from the first BOLD file only. May not problematic as long as
     #only one RT is used in all nifties
     bold_meta={}
-    with open(args['bold_json'][0],'r') as fp:
+    with open(args['bold_jsons'][0],'r') as fp:
         bold_meta = json.load(fp)
 
     # get an epi mask
@@ -376,21 +375,21 @@ def run_model_for_subject(bold_files, bold_json, stim_tsv, stim_json,
     # field should contain the filename (including path) of the precomputed
     # mask.
     if args['mask'] == 'epi':
-        mask = compute_epi_mask(bold_files[0])
+        mask = compute_epi_mask(args['bold_files'][0])
     else:
         print('!!!!! Warning: Loading a pre-computed brain mask is ',
               'currently not supported')
     
     # do BOLD preprocessing      
     preprocessed_bold = []
-    for bold_file in bold_files:
+    for bold_file in args['bold_files']:
         preprocessed_bold.append(preprocess_bold_fmri(bold_file, mask=mask,
                                                       **bold_prep_params))
 
     # load stimuli and append their time series 
     stim_meta = []
     stim_data = []
-    for tsv_fl, json_fl in zip(stim_tsv, stim_json):
+    for tsv_fl, json_fl in zip(args['stim_tsvs'], args['stim_jsons']):
         with open(json_fl, 'r') as fl:
             stim_meta.append(json.load(fl))
         stim_data.append(np.loadtxt(tsv_fl, delimiter='\t'))
