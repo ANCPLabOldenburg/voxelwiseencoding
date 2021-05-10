@@ -16,7 +16,8 @@ def make_config():
                      'bold_suffix','bold_extension','stim_suffix','stim_extension',
                      'json_extension','mask','bold_prep_params','encoding_params',
                      'lagging_params','skip_bids_validator','encoding_score_suffix',
-                     'bold_files','bold_jsons','stim_tsvs','stim_jsons']
+                     'bold_files','bold_jsons','stim_tsvs','stim_jsons','rec',
+                     'acq']
     arg = dict.fromkeys(dict_key_list,None)
     
     # User defined variables. Variable names follow BIDS label/value keys if defined there
@@ -32,9 +33,9 @@ def make_config():
     # The task-label to use for training the voxel-wise encoding model. Corresponds 
     # to label in task-<label> in BIDS naming.
     #arg['task'] = ['aomovieCS','aomovieN4','aomovieS2'] #BIDS
-    arg['task'] = ['aomovieCS'] #BIDS
-    #arg['recording'] = ['noise'] #BIDS
-    #arg['recording_suffix'] = 'recording' #BIDS
+    arg['task'] = ['aomovie'] #BIDS
+    #arg['rec'] = ['noise'] #BIDS
+    arg['acq'] = ['CS'] #BIDS
     #arg['run'] = ['01','04a','04b','05'] #BIDS
     arg['run'] = ['01'] #BIDS
     #arg['run'] = ['01','05'] #BIDS

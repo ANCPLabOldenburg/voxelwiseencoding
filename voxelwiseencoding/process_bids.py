@@ -269,6 +269,8 @@ def get_bids_filenames_for_econding(**kwargs):
                           task=kwargs['task'],run=kwargs['run'],
                           scope=kwargs['scope'],suffix=kwargs['bold_suffix'],
                           extension=kwargs['bold_extension'],
+                          recording=kwargs['rec'],
+                          acquisition=kwargs['acq'],
                           return_type='filename')
     print('Found', len(bold_files),'bold files.')
     for f in bold_files: print(f)
@@ -279,6 +281,8 @@ def get_bids_filenames_for_econding(**kwargs):
                           task=kwargs['task'],run=kwargs['run'],
                           scope=kwargs['scope'],suffix=kwargs['bold_suffix'],
                           extension=kwargs['json_extension'],
+                          recording=kwargs['rec'],
+                          acquisition=kwargs['acq'],
                           return_type='filename')
     print('Found', len(bold_jsons), 'corresponding json files.')
     for f in bold_jsons: print(f)
@@ -291,6 +295,8 @@ def get_bids_filenames_for_econding(**kwargs):
                          scope=kwargs['scope'],
                          suffix=kwargs['stim_suffix'],
                          extension=kwargs['stim_extension'],
+                         recording=kwargs['rec'],
+                         acquisition=kwargs['acq'],
                          return_type='filename')
     print('Found',  len(stim_tsv), 'stim files')
     for f in stim_tsv: print(f)
@@ -302,6 +308,8 @@ def get_bids_filenames_for_econding(**kwargs):
                          scope=kwargs['scope'],
                          suffix=kwargs['stim_suffix'],
                          extension=kwargs['json_extension'],
+                         recording=kwargs['rec'],
+                         acquisition=kwargs['acq'],
                          return_type='filename')
     print('Found',  len(stim_json), 'stim.json files')
     for f in stim_json: print(f)
