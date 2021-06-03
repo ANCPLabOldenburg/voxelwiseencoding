@@ -11,7 +11,8 @@ import librosa as lbr
 #import librosa.display
 
 def get_mel_spectrogram(filename, log=True, sr=44100, hop_length=512, **kwargs):
-    '''Returns the (log) Mel spectrogram of a given wav file, the sampling rate of that spectrogram and names of the frequencies in the Mel spectrogram
+    '''Returns the (log) Mel spectrogram of a given wav file, the sampling rate
+    of that spectrogram and names of the frequencies in the Mel spectrogram
 
     Parameters
     ----------
@@ -24,7 +25,8 @@ def get_mel_spectrogram(filename, log=True, sr=44100, hop_length=512, **kwargs):
 
     Returns
     -------
-    a tuple consisting of the Melspectrogram of shape (time, mels), the repetition time in seconds, and the frequencies of the Mel filters in Hertz 
+    a tuple consisting of the Melspectrogram of shape (time, mels), the 
+    repetition time in seconds, and the frequencies of the Mel filters in Hertz 
     '''
     wav, _ = lbr.load(filename, sr=sr)
     melspecgrams = lbr.feature.melspectrogram(y=wav, sr=sr, hop_length=hop_length,
@@ -42,13 +44,16 @@ def get_mel_spectrogram(filename, log=True, sr=44100, hop_length=512, **kwargs):
 if __name__ == "__main__":
     stim_folder = '/data2/azubaidi/ForrestGumpHearingLoss/BIDS_ForrGump/'\
                   +'sourcedata/stimuli/RecordedStimuli/'
-    output_folder = '/data2/azubaidi/ForrestGumpHearingLoss/BIDS_ForrGump/'
+    output_folder = '/data2/azubaidi/ForrestGumpHearingLoss/BIDS_ForrGump/derivatives/sorted/'
     
     stim_extension_old = 'recstimuli'
     stim_extension = 'stim'
-    recording_extension = 'recording-rec_'
-    subjects = ["01","02","03","04","05","06","07","08","09","10"]
-    sessions = ["01","02","03"]
+#    recording_extension = 'recording-rec_'
+    recording_extension = ''
+#    subjects = ["01","02","03","04","05","06","07","08","09","10"]
+    subjects = ["03"]
+#    sessions = ["01","02","03"]
+    sessions = ["CS"]
     for subject in subjects:
         for session in sessions:
             subses_stim_folder = os.path.join(stim_folder, f"sub-{subject}/ses-{session}/")
@@ -63,8 +68,10 @@ if __name__ == "__main__":
                 
                 ## set parameters ##
                 #rate        = 44100                     # sampling rate
-                winlen      = int(np.rint(rate*0.025))  # 1102 Window length std 0.025s
-                overlap     = int(np.round(rate*0.010)) # 441 Over_laplength std 0.01s
+#                winlen      = int(np.rint(rate*0.025))  # 1102 Window length std 0.025s
+#                overlap     = int(np.round(rate*0.010)) # 441 Over_laplength std 0.01s
+                winlen      = int(np.rint(rate*0.850))
+                overlap     = 0
                 hoplen      = winlen-overlap            # 661 hop_length
                 nfft        = winlen    # standard is = winlen = 1102 ... winlen*2 = 2204 ... nfft = the FFT size. Default for speech processing is 512.
                 nmel        = 48        # n = the number of cepstrum to return = the number of filters in the filterbank

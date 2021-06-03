@@ -25,7 +25,7 @@ import json
 import joblib
 import numpy as np
 from nilearn.masking import unmask
-from nilearn.image import new_img_like, concat_imgs
+from nilearn.image import new_img_like, concat_imgs, load_img
 from nilearn.masking import compute_epi_mask
 from nibabel import save
 
@@ -47,13 +47,16 @@ def create_stim_filename_from_args(subject_label, **kwargs):
     # TODO: change hacky way to glob
     return stim_expr.replace('_*_', '_*')
 
-def create_output_filename_from_args(subject_label, **kwargs):
+def create_output_filename_from_args(sub=None,ses=None,task=None,acq=None,
+                                     run=None,desc=None,recording=None):
     '''Creates filename for the model output'''
-    output_expr = ['sub-{}'.format(subject_label),
-                 'ses-{}'.format(kwargs.get('ses')) if kwargs.get('ses') else None,
-                 'task-{}'.format(kwargs.get('task')) if kwargs.get('task') else None,
-                 'desc-{}'.format(kwargs.get('desc')) if kwargs.get('desc') else None,
-                 'recording-{}'.format(kwargs.get('recording')) if kwargs.get('recording') else None]
+    output_expr = ['sub-{}'.format(sub) if sub else None,
+                 'ses-{}'.format(ses) if ses else None,
+                 'task-{}'.format(task) if task else None,
+                 'acq-{}'.format(acq) if acq else None,
+                 'run-{}'.format(run) if run else None,
+                 'desc-{}'.format(desc) if desc else None,
+                 'recording-{}'.format(recording) if recording else None]
     output_expr = '_'.join([term for term in output_expr if term])
     return output_expr
 
@@ -261,7 +264,8 @@ def get_bids_filenames_for_econding(**kwargs):
     bids.config.set_option('extension_initial_dot', True)
 
     # get all files in bids_dir
-    layout=bids.BIDSLayout(kwargs['bids_dir'], derivatives=True)
+    layout=bids.BIDSLayout(kwargs['bids_dir'], derivatives=kwargs['derivatives'],
+                           database_path='./temp/')
     
     # select the nifti bold file names in the scope 
     bold_files=layout.get(subject=kwargs['sub'],
@@ -269,8 +273,10 @@ def get_bids_filenames_for_econding(**kwargs):
                           task=kwargs['task'],run=kwargs['run'],
                           scope=kwargs['scope'],suffix=kwargs['bold_suffix'],
                           extension=kwargs['bold_extension'],
-                          recording=kwargs['rec'],
+                          #recording=kwargs['rec'],
                           acquisition=kwargs['acq'],
+                          space=kwargs['space'],
+                          #desc=kwargs['desc'],
                           return_type='filename')
     print('Found', len(bold_files),'bold files.')
     for f in bold_files: print(f)
@@ -281,8 +287,10 @@ def get_bids_filenames_for_econding(**kwargs):
                           task=kwargs['task'],run=kwargs['run'],
                           scope=kwargs['scope'],suffix=kwargs['bold_suffix'],
                           extension=kwargs['json_extension'],
-                          recording=kwargs['rec'],
+                          #recording=kwargs['rec'],
                           acquisition=kwargs['acq'],
+                          space=kwargs['space'],
+                          #desc=kwargs['desc'],
                           return_type='filename')
     print('Found', len(bold_jsons), 'corresponding json files.')
     for f in bold_jsons: print(f)
@@ -324,7 +332,7 @@ def get_bids_filenames_for_econding(**kwargs):
 #                           stim_tsv, stim_json, mask=None, bold_prep_kwargs=None,
 #                           preprocess_kwargs=None, estimator=None, encoding_kwargs=None,
 #                           **kwargs):
-def run_model_for_subject(**kwargs):
+def run_model_for_subject(bold_files, bold_json, stim_tsv, stim_json,**kwargs):
     '''Runs voxel-wise encoding model for a single subject and returns Ridges and scores
 
     Parameters
@@ -375,7 +383,7 @@ def run_model_for_subject(**kwargs):
     #metadata from the first BOLD file only. May not problematic as long as
     #only one RT is used in all nifties
     bold_meta={}
-    with open(args['bold_jsons'][0],'r') as fp:
+    with open(bold_json[0],'r') as fp:
         bold_meta = json.load(fp)
 
     # get an epi mask
@@ -383,21 +391,23 @@ def run_model_for_subject(**kwargs):
     # field should contain the filename (including path) of the precomputed
     # mask.
     if args['mask'] == 'epi':
-        mask = compute_epi_mask(args['bold_files'][0])
+        mask = compute_epi_mask(bold_files[0])
     else:
-        print('!!!!! Warning: Loading a pre-computed brain mask is ',
-              'currently not supported')
+        mask = load_img(args['mask'])
+        mask._data_cache[np.nonzero(mask._data_cache)] = 1
+#        print('!!!!! Warning: Loading a pre-computed brain mask is ',
+#              'currently not supported')
     
     # do BOLD preprocessing      
     preprocessed_bold = []
-    for bold_file in args['bold_files']:
+    for bold_file in bold_files:
         preprocessed_bold.append(preprocess_bold_fmri(bold_file, mask=mask,
                                                       **bold_prep_params))
 
     # load stimuli and append their time series 
     stim_meta = []
     stim_data = []
-    for tsv_fl, json_fl in zip(args['stim_tsvs'], args['stim_jsons']):
+    for tsv_fl, json_fl in zip(stim_tsv, stim_json):
         with open(json_fl, 'r') as fl:
             stim_meta.append(json.load(fl))
         stim_data.append(np.loadtxt(tsv_fl, delimiter='\t'))
@@ -412,13 +422,14 @@ def run_model_for_subject(**kwargs):
         stim_TR, stim_start_times=stim_start_times, **lagging_params)
 
     # compute ridge and scores for folds
-    models, scores, bold_prediction, train_indices, test_indices = \
+    scores, bold_prediction, train_indices, test_indices = \
         get_model_plus_scores(stim_data_lagged, preprocessed_bold,
                               estimator=args['estimator'],
                               run_start_indices=run_start_indices,
+                              model_dump_path=args.get('model_dump_path'),
                               **encoding_params)
         
-    return models, scores, mask, bold_prediction, train_indices, test_indices
+    return scores, mask, bold_prediction, train_indices, test_indices
 
 def run_voxelwise_encoding(bold_files, bold_json,stim_tsv, stim_json,
                            **kwargs):
