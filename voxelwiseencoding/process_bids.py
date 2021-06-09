@@ -394,15 +394,16 @@ def run_model_for_subject(bold_files, bold_json, stim_tsv, stim_json,**kwargs):
         mask = compute_epi_mask(bold_files[0])
     else:
         mask = load_img(args['mask'])
-        mask._data_cache[np.nonzero(mask._data_cache)] = 1
+#        mask._data_cache[np.nonzero(mask._data_cache)] = 1
 #        print('!!!!! Warning: Loading a pre-computed brain mask is ',
 #              'currently not supported')
     
     # do BOLD preprocessing      
     preprocessed_bold = []
     for bold_file in bold_files:
-        preprocessed_bold.append(preprocess_bold_fmri(bold_file, mask=mask,
-                                                      **bold_prep_params))
+        prep_bold, resampled_mask = preprocess_bold_fmri(bold_file, mask=mask,
+                                                         **bold_prep_params)
+        preprocessed_bold.append(prep_bold)
 
     # load stimuli and append their time series 
     stim_meta = []
@@ -429,7 +430,7 @@ def run_model_for_subject(bold_files, bold_json, stim_tsv, stim_json,**kwargs):
                               model_dump_path=args.get('model_dump_path'),
                               **encoding_params)
         
-    return scores, mask, bold_prediction, train_indices, test_indices
+    return scores, resampled_mask, bold_prediction, train_indices, test_indices
 
 def run_voxelwise_encoding(bold_files, bold_json,stim_tsv, stim_json,
                            **kwargs):

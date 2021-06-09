@@ -11,6 +11,7 @@ import joblib
 from nilearn.masking import unmask, apply_mask
 from nibabel import save, load, Nifti1Image
 from nilearn.signal import clean
+from nilearn.image import resample_img
 
 # Cell
 def preprocess_bold_fmri(bold, mask=None, detrend=True, standardize='zscore', **kwargs):
@@ -28,6 +29,9 @@ def preprocess_bold_fmri(bold, mask=None, detrend=True, standardize='zscore', **
         ndarray of the preprocessed bold data in (samples, voxels)
     '''
     if mask:
+        data_bold = load(bold)
+        mask = resample_img(mask, data_bold._affine, data_bold.shape[:-1], 
+                            interpolation='nearest')
         data = apply_mask(bold, mask)
     else:
         if not isinstance(bold, Nifti1Image):
@@ -35,7 +39,7 @@ def preprocess_bold_fmri(bold, mask=None, detrend=True, standardize='zscore', **
         else:
             data = bold.get_data()
         data = np.reshape(data, (-1, data.shape[-1])).T
-    return clean(data, detrend=detrend, standardize=standardize, **kwargs)
+    return clean(data, detrend=detrend, standardize=standardize, **kwargs), mask
 
 # Cell
 def get_remove_idx(lagged_stimulus, remove_nan=True):

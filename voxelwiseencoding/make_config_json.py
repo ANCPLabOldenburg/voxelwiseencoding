@@ -21,7 +21,7 @@ def make_config():
     
     # User defined variables. Variable names follow BIDS label/value keys if defined there
     arg['bids_dir'] = '/data2/azubaidi/ForrestGumpHearingLoss/BIDS_ForrGump'
-    arg['output_dir'] = 'output/'
+    arg['output_dir'] = 'output_windowlen25_overlap0_masked/'
     # The label(s) of the participant(s) that should be analyzed. The label corresponds to
     # sub-<participant_label> from the BIDS spec (so it does not include "sub-"). 
     # If this parameter is not provided all subjects should be analyzed. Multiple 
@@ -58,7 +58,8 @@ def make_config():
     arg['encoding_score_suffix']='score' #BIDS
     # Whether or not to perform BIDS dataset validation
     arg['skip_bids_validator'] = True
-    arg['mask'] = 'epi'
+#    arg['mask'] = 'epi'
+    arg['mask'] = '/data2/azubaidi/ForrestGumpHearingLoss/BIDS_ForrGump/derivatives/fmriprep/mni_Temporal_mask_ero5_bin.nii.gz'
 #    arg['mask'] = '/data2/lmichalke/github/ANCP/voxelwiseencoding/voxelwiseencoding/sub-03_mask.nii.gz'
     # Some parameters for BOLD preprocessing
     bold_prep_params = {'standardize': 'zscore', 'detrend': True}

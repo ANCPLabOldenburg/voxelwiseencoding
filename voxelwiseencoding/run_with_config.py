@@ -53,11 +53,10 @@ def run_analysis(subject,acq,kwargs):
     joblib.dump(train_indices, os.path.join(output_dir, '{0}_desc-trainindices.pkl'.format(filename_output)))
     joblib.dump(test_indices, os.path.join(output_dir, '{0}_desc-testindices.pkl'.format(filename_output)))
     
-    if mask:
-        scores_bold = concat_imgs([unmask(scores_fold, mask) for scores_fold in scores.T])
-    bold_prediction_nifti = concat_imgs([unmask(bold, mask) for bold in bold_prediction])
-    
+    scores_bold = concat_imgs([unmask(scores_fold, mask) for scores_fold in scores.T])
     save(scores_bold, os.path.join(output_dir, '{0}_desc-scores.nii.gz'.format(filename_output)))
+    
+    bold_prediction_nifti = concat_imgs([unmask(bold, mask) for bold in bold_prediction])
     save(bold_prediction_nifti, os.path.join(output_dir, '{0}_desc-boldprediction.nii.gz'.format(filename_output)))
     
     # also save config file that was used to perform analysis in the output folder

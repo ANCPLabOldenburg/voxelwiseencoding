@@ -29,7 +29,7 @@ def product_moment_corr(x,y):
 # Cell
 
 def get_model_plus_scores(X, y, estimator=None, cv=None, scorer=None,
-                          voxel_selection=True, validate=True, 
+                          voxel_selection=False, validate=True, 
                           run_start_indices=None, model_dump_path=None,
                           **kwargs):
     ''' Returns multiple estimator trained in a cross-validation on n_splits of 
@@ -49,7 +49,7 @@ def get_model_plus_scores(X, y, estimator=None, cv=None, scorer=None,
              split method for X and y.
         scorer : None or any sci-kit learn compatible scoring function, optional
                  default uses product moment correlation
-        voxel_selection : bool, optional, default True
+        voxel_selection : bool, optional, default False
                           Whether to only use voxels with variance larger than zero.
                           This will set scores for these voxels to zero.
         validate : bool, optional, default True
@@ -110,10 +110,10 @@ def get_model_plus_scores(X, y, estimator=None, cv=None, scorer=None,
             if voxel_selection:
                 scores = np.zeros_like(voxel_var)
 #                scores[voxel_var > 0.] =  scorer(y[test], models[-1].predict(X[test]))
-                scores[voxel_var > 0.] =  scorer(y[test], model.predict(X[test]))
+                scores[voxel_var > 0.] =  scorer(y[test], bold_prediction[-1])
             else:
 #                scores = scorer(y[test], models[-1].predict(X[test]))
-                scores = scorer(y[test], model.predict(X[test]))
+                scores = scorer(y[test], bold_prediction[-1])
             score_list.append(scores[:, None])
             print('Saving '+model_dump_path.format(cv_fold_idx))
             joblib.dump(model, model_dump_path.format(cv_fold_idx))

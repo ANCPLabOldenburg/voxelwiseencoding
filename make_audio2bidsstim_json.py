@@ -6,6 +6,7 @@ import numpy as np
 import glob
 import os.path
 import json
+import re
 import scipy.io.wavfile as wav
 import librosa as lbr 
 #import librosa.display
@@ -44,23 +45,31 @@ def get_mel_spectrogram(filename, log=True, sr=44100, hop_length=512, **kwargs):
 if __name__ == "__main__":
     stim_folder = '/data2/azubaidi/ForrestGumpHearingLoss/BIDS_ForrGump/'\
                   +'sourcedata/stimuli/RecordedStimuli/'
-    output_folder = '/data2/azubaidi/ForrestGumpHearingLoss/BIDS_ForrGump/derivatives/sorted/'
-    
-    stim_extension_old = 'recstimuli'
-    stim_extension = 'stim'
+    output_folder = '/data2/azubaidi/ForrestGumpHearingLoss/BIDS_ForrGump/derivatives/fmriprep/'
+    output_sorted = True
+#    stim_extension_old = 'recstimuli'
+#    stim_extension = 'stim'
 #    recording_extension = 'recording-rec_'
-    recording_extension = ''
+#    recording_extension = ''
 #    subjects = ["01","02","03","04","05","06","07","08","09","10"]
-    subjects = ["03"]
-#    sessions = ["01","02","03"]
-    sessions = ["CS"]
+    subjects = ["03","09"]
+    sessions = ["01","02","03"]
+    # Name of the folders where unincluded runs (01 and 08) go for each session
+    unincluded_runs = {"01":"1st","02":"2nd","03":"3rd"}
+#    sessions = ["01"]
     for subject in subjects:
         for session in sessions:
             subses_stim_folder = os.path.join(stim_folder, f"sub-{subject}/ses-{session}/")
-            subses_output_folder = os.path.join(output_folder, f"sub-{subject}/ses-{session}/func/")
             wav_files = glob.glob(subses_stim_folder + "*.wav")
+            if output_sorted:
+                subses_output_folder_sorted = os.path.join(output_folder, f"sub-{subject}/ses-%s/func/")
+            else:
+                subses_output_folder = os.path.join(output_folder, f"sub-{subject}/ses-{session}/func/")
             
             for wav_file in wav_files:
+#                if 'run-01' in wav_file or 'run-08' in wav_file:
+##                    print("Skipping ",wav_file)
+#                    continue
                 print("Converting ",wav_file)
                 rate, sig = wav.read(wav_file)
                 if len(sig.shape) > 1:
@@ -68,9 +77,9 @@ if __name__ == "__main__":
                 
                 ## set parameters ##
                 #rate        = 44100                     # sampling rate
-#                winlen      = int(np.rint(rate*0.025))  # 1102 Window length std 0.025s
+                winlen      = int(np.rint(rate*0.025))  # 1102 Window length std 0.025s
 #                overlap     = int(np.round(rate*0.010)) # 441 Over_laplength std 0.01s
-                winlen      = int(np.rint(rate*0.850))
+#                winlen      = int(np.rint(rate*0.850))
                 overlap     = 0
                 hoplen      = winlen-overlap            # 661 hop_length
                 nfft        = winlen    # standard is = winlen = 1102 ... winlen*2 = 2204 ... nfft = the FFT size. Default for speech processing is 512.
@@ -88,51 +97,27 @@ if __name__ == "__main__":
                 
                 melspec, sr_spec, freqs = get_mel_spectrogram(wav_file, **config)
                 outfile_base = os.path.basename(wav_file).split('.')[0]
-                outfile_base = outfile_base.replace(stim_extension_old,
-                                                    recording_extension+stim_extension)
+#                outfile_base = outfile_base.replace(stim_extension_old,
+#                                                    recording_extension+stim_extension)
+                if output_sorted:
+                    if 'run-01' in wav_file or 'run-08' in wav_file:
+                        condition = unincluded_runs[session]
+                    elif 'acq-CS' in wav_file:
+                        condition = 'CS'
+                    elif 'acq-N4' in wav_file:
+                        condition = 'N4'
+                    elif 'acq-S2' in wav_file:
+                        condition = 'S2'
+                    else:
+                        raise Exception('No valid condition tag found in wav ' 
+                                        +'file name. Valid tags: CS, N4, S2')
+                    subses_output_folder = subses_output_folder_sorted % condition
+                    outfile_base = re.sub(r'ses-[0-9]*','ses-'+condition,outfile_base)
                 tsv_file = os.path.join(subses_output_folder, outfile_base+'.tsv.gz')
                 json_file = os.path.join(subses_output_folder, outfile_base+'.json')
+#                print('Saving ', json_file)
                 np.savetxt(tsv_file, melspec, delimiter='\t')
                 metadata = {'SamplingFrequency': sr_spec, 'StartTime': start_time,
                             'Columns': freqs}
                 with open(json_file, 'w+') as fp:
                     json.dump(metadata, fp)
-            
-#                #create plots for smaller time intervalls
-#                short_sig = sig[0:foursec]
-#               
-#                #Mel
-#                Smel = lbr.feature.melspectrogram(y=sig, n_fft=nfft, sr=rate, win_length=winlen, hop_length=hoplen, n_mels=nmel, fmax=highfreq, fmin=lowfreq) 
-#                S_dB = lbr.power_to_db(Smel, ref=np.max)
-#                #RMS
-#                rms_np = np.zeros([1,len(Smel.T)])
-#                for i in np.arange(len(Smel.T)):
-#                    rms_np[0,i] = np.sqrt(np.mean(Smel[:,i]**2))
-#            
-#                #plot
-#                head, tail      = os.path.split(files[k-1]) # extracts the filename
-#                plt.figure(figsize=(5,8))
-#                
-#                ax1 = plt.subplot(noay,noax,1) # Plot the amplitude envelope of a waveform.
-#                lbr.display.waveplot(y=sig, sr=rate, x_axis='time', offset=0.0, max_sr=1000) 
-#                plt.title('Stereo waveform for: %s' %tail)
-#                plt.ylim([-25000, 25000])
-#                ax1.set_xlabel('Time [sec]')
-#                
-#                ax2 = plt.subplot(noay,noax,2)
-#                lbr.display.specshow(S_dB, y_axis='mel', sr=rate, fmax=highfreq)              
-#                plt.title('Mel-frequency spectrogram for: %s' %tail) 
-#                
-#                ax3 = plt.subplot(noay,noax,3)
-#                plt.semilogy(rms_np.T, label='RMS Energy')
-#                plt.xticks([])
-#                plt.xlim([0, rms_np.shape[-1]])
-#                plt.ylim([1, 10**11])
-#                plt.title('RMS Energy for: %s' %tail)
-#                plt.legend()
-#                
-#                plt.tight_layout()
-#                plt.savefig(stim_folder+'4 seconds librosa Mel and RMS analysis for %s.png' %tail) # save plot to file 
-#                plt.show()               
-                
-        
