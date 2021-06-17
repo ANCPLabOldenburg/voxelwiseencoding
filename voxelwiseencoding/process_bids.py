@@ -295,35 +295,57 @@ def get_bids_filenames_for_econding(**kwargs):
     print('Found', len(bold_jsons), 'corresponding json files.')
     for f in bold_jsons: print(f)
     
+    if kwargs.get('remove_confounds'):
+        # select confound tsv file names in the scope 
+        confound_tsvs=layout.get(subject=kwargs['sub'],
+                              session=kwargs['ses'],
+                              task=kwargs['task'],run=kwargs['run'],
+                              scope=kwargs['scope'],suffix=kwargs['confounds_suffix'],
+                              extension=kwargs['confounds_extension'],
+                              acquisition=kwargs['acq'],
+                              #description=kwargs['confounds_desc'],
+                              return_type='filename')
+        print('Found', len(confound_tsvs),'confounds tsv files.')
+        for f in confound_tsvs: print(f)
+    
+    if kwargs.get('stim_always_CS'):
+        acq = 'CS'
+        session = 'CS'
+    else:
+        acq = kwargs['acq']
+        session = kwargs['ses']
     # select the stimulus tsv file names in the scope. 
     # TODO so far we assume they live in the same  directory a the nifties 
     #and have the same descriptive names
-    stim_tsv=layout.get(subject=kwargs['sub'],session=kwargs['ses'],
-                         task=kwargs['task'],run=kwargs['run'],
-                         scope=kwargs['scope'],
-                         suffix=kwargs['stim_suffix'],
-                         extension=kwargs['stim_extension'],
-                         recording=kwargs['rec'],
-                         acquisition=kwargs['acq'],
-                         return_type='filename')
+    stim_tsv=layout.get(subject=kwargs['sub'],session=session,
+                        task=kwargs['task'],run=kwargs['run'],
+                        scope=kwargs['scope'],
+                        suffix=kwargs['stim_suffix'],
+                        extension=kwargs['stim_extension'],
+                        recording=kwargs['rec'],
+                        acquisition=acq,
+                        return_type='filename')
     print('Found',  len(stim_tsv), 'stim files')
     for f in stim_tsv: print(f)
     
     # get the json filenames corresponding to the stim tsv filenames
     stim_json=layout.get(subject=kwargs['sub'],
-                         session=kwargs['ses'],
+                         session=session,
                          task=kwargs['task'],run=kwargs['run'],
                          scope=kwargs['scope'],
                          suffix=kwargs['stim_suffix'],
                          extension=kwargs['json_extension'],
                          recording=kwargs['rec'],
-                         acquisition=kwargs['acq'],
+                         acquisition=acq,
                          return_type='filename')
     print('Found',  len(stim_json), 'stim.json files')
     for f in stim_json: print(f)
     
     #return the lists of filenames
-    return bold_files, bold_jsons, stim_tsv, stim_json
+    if kwargs.get('remove_confounds'):
+        return bold_files, bold_jsons, stim_tsv, stim_json, confound_tsvs
+    else:
+        return bold_files, bold_jsons, stim_tsv, stim_json
 
 
 
@@ -400,10 +422,20 @@ def run_model_for_subject(bold_files, bold_json, stim_tsv, stim_json,**kwargs):
     
     # do BOLD preprocessing      
     preprocessed_bold = []
-    for bold_file in bold_files:
-        prep_bold, resampled_mask = preprocess_bold_fmri(bold_file, mask=mask,
-                                                         **bold_prep_params)
-        preprocessed_bold.append(prep_bold)
+    if args.get('remove_confounds'):
+        import pandas as pd
+        for bold_file, confound_tsv in zip(bold_files,args['confound_tsvs']):
+            confounds = pd.read_csv(confound_tsv, sep='\t')
+            confounds = confounds[args['confounds_to_exclude']]
+            prep_bold, resampled_mask = preprocess_bold_fmri(bold_file, mask=mask,
+                                                             confounds=confounds,
+                                                             **bold_prep_params)
+            preprocessed_bold.append(prep_bold)
+    else:
+        for bold_file in bold_files:
+            prep_bold, resampled_mask = preprocess_bold_fmri(bold_file, mask=mask,
+                                                             **bold_prep_params)
+            preprocessed_bold.append(prep_bold)
 
     # load stimuli and append their time series 
     stim_meta = []

@@ -4,17 +4,18 @@ __all__ = ['preprocess_bold_fmri', 'get_remove_idx', 'make_lagged_stimulus', 'ge
 
 # Cell
 #export
-import os
+#import os
 import warnings
 import numpy as np
-import joblib
-from nilearn.masking import unmask, apply_mask
-from nibabel import save, load, Nifti1Image
+#import joblib
+from nilearn.masking import apply_mask
+from nibabel import load, Nifti1Image
 from nilearn.signal import clean
 from nilearn.image import resample_img
 
 # Cell
-def preprocess_bold_fmri(bold, mask=None, detrend=True, standardize='zscore', **kwargs):
+def preprocess_bold_fmri(bold, mask=None, detrend=True, standardize='zscore',
+                         confounds=None, **kwargs):
     '''Preprocesses BOLD data and returns ndarray of preprocessed data
 
     Parameters
@@ -23,6 +24,10 @@ def preprocess_bold_fmri(bold, mask=None, detrend=True, standardize='zscore', **
         mask : path to mask nifti file or loaded mask nifti, optional
         detrend : bool, whether to linearly detrend the data, optional
         standardize : {‘zscore’, ‘psc’, False}, default is ‘zscore’
+        confounds: Confounds timeseries. Shape must be (instant number, confound number),
+                   or just (instant number,). The number of time instants in
+                   bold signals and confounds must be identical 
+                   (i.e. bold.shape[0] == confounds.shape[0]).
         kwargs : further arguments for nilearn's clean function
 
     Returns
@@ -39,7 +44,8 @@ def preprocess_bold_fmri(bold, mask=None, detrend=True, standardize='zscore', **
         else:
             data = bold.get_data()
         data = np.reshape(data, (-1, data.shape[-1])).T
-    return clean(data, detrend=detrend, standardize=standardize, **kwargs), mask
+    return clean(data, detrend=detrend, standardize=standardize, 
+                 confounds=confounds, **kwargs), mask
 
 # Cell
 def get_remove_idx(lagged_stimulus, remove_nan=True):

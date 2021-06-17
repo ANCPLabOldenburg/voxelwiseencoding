@@ -22,19 +22,13 @@ def run_analysis(subject,acq,kwargs):
     args['acq'] = [acq]
     
     # get the files from the bids directory
-    bold_files, bold_jsons, stim_tsvs, stim_jsons =\
-         get_bids_filenames_for_econding(**args)
-    # hack to remove unwanted stim files
-#    temp = []
-#    for filepath in stim_tsvs:
-#        if 'fmriprep' in filepath:
-#            temp.append(filepath)
-#    stim_tsvs = temp
-#    temp = []
-#    for filepath in stim_jsons:
-#        if 'fmriprep' in filepath:
-#            temp.append(filepath)
-#    stim_jsons = temp
+    if args.get('remove_confounds'):
+        bold_files, bold_jsons, stim_tsvs, stim_jsons, confound_tsvs =\
+             get_bids_filenames_for_econding(**args)
+        args['confound_tsvs'] = confound_tsvs
+    else:
+        bold_files, bold_jsons, stim_tsvs, stim_jsons =\
+             get_bids_filenames_for_econding(**args)
     
     # make output directory
     output_dir = os.path.join(args['output_dir'],f'sub-{subject}/acq-{acq}/')

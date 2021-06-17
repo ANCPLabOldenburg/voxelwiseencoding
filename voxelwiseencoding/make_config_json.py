@@ -21,7 +21,7 @@ def make_config():
     
     # User defined variables. Variable names follow BIDS label/value keys if defined there
     arg['bids_dir'] = '/data2/azubaidi/ForrestGumpHearingLoss/BIDS_ForrGump'
-    arg['output_dir'] = 'output_windowlen25_overlap0_masked/'
+    arg['output_dir'] = 'output_windowlen25_overlap0_masked_alwaysCS_removeconfounds/'
     # The label(s) of the participant(s) that should be analyzed. The label corresponds to
     # sub-<participant_label> from the BIDS spec (so it does not include "sub-"). 
     # If this parameter is not provided all subjects should be analyzed. Multiple 
@@ -29,18 +29,18 @@ def make_config():
     arg['sub'] = ['03','09'] #BIDS
 #    arg['sub'] = ["01","02","03","04","05","06","07","08","09","10"] #BIDS
     # The label of the session to use. Corresponds to label in ses-<label> in the BIDS directory.
-#    arg['ses'] = ['CS'] #BIDS
+    arg['ses'] = ['CS'] #BIDS
 #    arg['ses'] = ["01","02","03"] #BIDS
-    arg['ses'] = ['CS','N4','S2'] #BIDS
+#    arg['ses'] = ['N4','S2'] #BIDS
 #    arg['ses'] = ['N4','S2'] #BIDS
     # The task-label to use for training the voxel-wise encoding model. Corresponds 
     # to label in task-<label> in BIDS naming.
     #arg['task'] = ['aomovieCS','aomovieN4','aomovieS2'] #BIDS
     arg['task'] = ['aomovie'] #BIDS
     arg['rec'] = ['audio'] #BIDS
-#    arg['acq'] = ['CS'] #BIDS
+    arg['acq'] = ['CS'] #BIDS
 #    arg['acq'] = ['N4','S2'] #BIDS
-    arg['acq'] = ['CS','N4','S2'] #BIDS
+#    arg['acq'] = ['N4','S2'] #BIDS
     arg['run'] = ["02","03","04","05","06","07"] #BIDS
 #    arg['run'] = ["02","03"] #BIDS
 #    arg['run'] = ['01'] #BIDS
@@ -58,6 +58,13 @@ def make_config():
     arg['encoding_score_suffix']='score' #BIDS
     # Whether or not to perform BIDS dataset validation
     arg['skip_bids_validator'] = True
+    arg['stim_always_CS'] = True
+    arg['remove_confounds'] = True
+    arg['confounds_desc'] = 'confounds'
+    arg['confounds_suffix'] = 'timeseries'
+    arg['confounds_extension'] = '.tsv'
+    arg['confounds_to_exclude'] = ['rot_x','rot_y','rot_z','trans_x','trans_y',
+                                   'trans_z','csf','white_matter']
 #    arg['mask'] = 'epi'
     arg['mask'] = '/data2/azubaidi/ForrestGumpHearingLoss/BIDS_ForrGump/derivatives/fmriprep/mni_Temporal_mask_ero5_bin.nii.gz'
 #    arg['mask'] = '/data2/lmichalke/github/ANCP/voxelwiseencoding/voxelwiseencoding/sub-03_mask.nii.gz'
