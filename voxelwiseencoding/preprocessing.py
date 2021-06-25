@@ -7,7 +7,7 @@ __all__ = ['preprocess_bold_fmri', 'get_remove_idx', 'make_lagged_stimulus', 'ge
 #import os
 import warnings
 import numpy as np
-#import joblib
+import joblib
 from nilearn.masking import apply_mask
 from nibabel import load, Nifti1Image
 from nilearn.signal import clean
@@ -66,10 +66,20 @@ def get_remove_idx(lagged_stimulus, remove_nan=True):
 def make_lagged_stimulus(stimulus, n_lags, fill_value=np.nan):
     '''Make lagged stimulus by augmenting the stimulus matrix and cutting samples from begin and end.
     
-    Consider lagging a matrix as placing a window over the original time series, shifting it one step forward in time, copying the content of the window and placing it beside the original time series. This process is repeated n_lag step times. As no new data is generated in th process implemented here, the window must be n_lag_steps shorter than the original time series. 
+    Consider lagging a matrix as placing a window over the original time series,
+    shifting it one step forward in time, copying the content of the window and 
+    placing it beside the original time series. This process is repeated n_lag 
+    step times. As no new data is generated in th process implemented here, 
+    the window must be n_lag_steps shorter than the original time series. 
     
     
-    Deletes one sample of the original time series per lag step such that the columns with the longest lag start at the original time point zero. As the number of stimulus samples is limited and no new data are generated,  samples have to be deleted from the begin of the time series of all but the longest lag steps. Thus final stimulus time series has length original_stimulus.shape[0]-n_lag_steps. The onsets of the lags vary from time point zero to time point n_lags.   
+    Deletes one sample of the original time series per lag step such that the 
+    columns with the longest lag start at the original time point zero. As the 
+    number of stimulus samples is limited and no new data are generated, 
+    samples have to be deleted from the begin of the time series of all but the
+    longest lag steps. Thus final stimulus time series has length 
+    original_stimulus.shape[0]-n_lag_steps. The onsets of the lags vary from 
+    time point zero to time point n_lags.   
     '''
     lagged_reps = [np.vstack([np.full((lag_i, stimulus.shape[1]), fill_value),
                               stimulus[:-lag_i]]) 
@@ -82,7 +92,11 @@ def generate_lagged_stimulus(stimulus, fmri_samples, TR, stim_TR,
                              fill_value=np.nan):
     '''Predictor with temporally lagged features and aligned target time series
 
-    Operates on the predictor (e.g. spectrogram) to compensates lags in predictor (stimulus) start relative to target start (e.g. fMRI, see start_time). Can change length introduce an offest  and control over the length of the time series from start (see offset_stim). Then creates and returns the aligned  the Does the actual work 
+    Operates on the predictor (e.g. spectrogram) to compensates lags in predictor
+    (stimulus) start relative to target start (e.g. fMRI, see start_time).
+    Can change length introduce an offest  and control over the length of the 
+    time series from start (see offset_stim). Then creates and returns the 
+    aligned stimulus.
 
     Args:
         stimuli: Stimulus representation of shape samples by features. (float)
@@ -175,7 +189,8 @@ def generate_lagged_stimulus(stimulus, fmri_samples, TR, stim_TR,
 
 # Cell
 def make_X_Y(stimuli, fmri, TR, stim_TR, lag_time=6.0, stim_start_times=None, 
-             offset_stim=0., fill_value=np.nan, remove_nans=True):
+             offset_stim=0., fill_value=np.nan, remove_nans=True,
+             save_lagged_stim_path=None):
     '''Creates (lagged) features and fMRI matrices concatenated along runs
     
     Makes X and Y matrices for the encoding model Y=X*B. X would be a matrix
@@ -243,6 +258,9 @@ def make_X_Y(stimuli, fmri, TR, stim_TR, lag_time=6.0, stim_start_times=None,
           nans than this proportion. Replace nans with zeros in this case.
           (bool, bool or float 0<=remove_nans<=1, optional, default True)
 
+        save_lagged_stim_path: Path where to save lagged stimulus.
+                               Default None, None means no saving.
+            
     Returns: 
         X: The (lagged) predictor (stimulus) matrices. (list of ndarrays)     
 
@@ -274,7 +292,8 @@ def make_X_Y(stimuli, fmri, TR, stim_TR, lag_time=6.0, stim_start_times=None,
             stimulus, fmri_run.shape[0], TR, stim_TR, lag_time=lag_time,
             start_time=stim_start_times[i] if stim_start_times else 0.,
             offset_stim=offset_stim, fill_value=fill_value)
-        
+        if save_lagged_stim_path:
+            joblib.dump(stimulus, save_lagged_stim_path.format(i))
         # remove nans in stim/fmri here
         #TODO ancpJR: where would they com from. Delete?
         if remove_nans:

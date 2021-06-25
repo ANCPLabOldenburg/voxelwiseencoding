@@ -5,29 +5,28 @@ __all__ = ['create_stim_filename_from_args',
            'create_metadata_filename_from_args',
            'create_bold_glob_from_args', 
            'run', 
-           'get_func_bold_directory', 
-           'process_bids_subject',
+           'get_func_bold_directory',
            'run_model_for_subject', 
            'get_bids_filenames_for_econding']
 
 # Cell
 #export
-import argparse
+#import argparse
 import os
 import subprocess
-import nibabel
+#import nibabel
 import numpy
 from glob import glob
 from preprocessing import preprocess_bold_fmri, make_X_Y
 from encoding import get_model_plus_scores
-from sklearn.linear_model import RidgeCV
+#from sklearn.linear_model import RidgeCV
 import json
 import joblib
 import numpy as np
-from nilearn.masking import unmask
-from nilearn.image import new_img_like, concat_imgs, load_img
+#from nilearn.masking import unmask
+from nilearn.image import load_img#, new_img_like, concat_imgs
 from nilearn.masking import compute_epi_mask
-from nibabel import save
+#from nibabel import save
 
 
 
@@ -452,7 +451,11 @@ def run_model_for_subject(bold_files, bold_json, stim_tsv, stim_json,**kwargs):
     # ancpJR: The image o stim_data lagged does look a bit odd
     stim_data_lagged, preprocessed_bold, run_start_indices = make_X_Y(
         stim_data, preprocessed_bold, bold_meta['RepetitionTime'],
-        stim_TR, stim_start_times=stim_start_times, **lagging_params)
+        stim_TR, stim_start_times=stim_start_times, 
+        save_lagged_stim_path=args.get('save_lagged_stim_path'), **lagging_params)
+    
+#    if args.get('save_lagged_stim_all_path'):
+#        joblib.dump(stim_data_lagged,args['save_lagged_stim_all_path'])
 
     # compute ridge and scores for folds
     scores, bold_prediction, train_indices, test_indices = \
@@ -463,27 +466,3 @@ def run_model_for_subject(bold_files, bold_json, stim_tsv, stim_json,**kwargs):
                               **encoding_params)
         
     return scores, resampled_mask, bold_prediction, train_indices, test_indices
-
-def run_voxelwise_encoding(bold_files, bold_json,stim_tsv, stim_json,
-                           **kwargs):
-    #TODO (ancpJR): include docstring
-    args=kwargs.copy()
-
-
-    # from bids_validator import BIDSValidator
-    # validator = BIDSValidator()
-    # filepaths = ["/sub-01/anat/sub-01_rec-CSD_T1w.nii.gz", "/sub-01/anat/sub-01_acq-23_rec-CSD_T1w.exe"]
-    # for filepath in filepaths:
-    # print(validator.is_bids(filepath))  # will print True, and then False
- 
-
-    encoding_score_suffix = ''
-    if args['encoding_score_suffix']:
-        encoding_score_suffix = '_' + args['encoding_score_suffix']    
-        
-    ridges, scores, mask, bold_prediction, train_indices, test_indices =\
-                 run_model_for_subject(bold_files, bold_json,
-                                  stim_tsv, stim_json, **args)
-
-    # TODO (ancpJR): save the results in BIDS compatible format
-    return ridges, scores, mask, bold_prediction, train_indices, test_indices

@@ -36,6 +36,12 @@ def run_analysis(subject,acq,kwargs):
         os.makedirs(output_dir)
     filename_output = create_output_filename_from_args(subject,None,args['task'][0],acq)
     args['model_dump_path'] = os.path.join(output_dir, filename_output+'_desc-ridgesfold{0}.pkl')
+    if args.get('save_lagged_stim'):
+        lagged_stim_dir = os.path.join(output_dir,'lagged_stim/')
+        if not os.path.exists(lagged_stim_dir):
+            os.makedirs(lagged_stim_dir)
+        args['save_lagged_stim_path'] = os.path.join(lagged_stim_dir, filename_output+'_desc-laggedstim{0}.pkl')
+#        args['save_lagged_stim_all_path'] = os.path.join(lagged_stim_dir, filename_output+'_desc-laggedstimall.pkl')
     
     # run analysis
     scores, mask, bold_prediction, train_indices, test_indices = \
@@ -59,9 +65,13 @@ def run_analysis(subject,acq,kwargs):
         json.dump(args, file, indent=4, ensure_ascii=False, sort_keys=True)
     
 if __name__ == "__main__":  
+    import time
+    tic = time.time()
     with open(CONFIG_FILENAME, 'r') as file:
         args = json.load(file)
     
     for subject in args['sub']:
         for acq in args['acq']:
-            run_analysis(subject,acq,args)
+            run_analysis(subject,acq,args)                  
+    toc = time.time()
+    print('\nElapsed time: {:.2f} s'.format(toc - tic))
