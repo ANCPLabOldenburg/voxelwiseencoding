@@ -6,7 +6,6 @@ Created on Tue Apr 20 17:43:11 2021
 @author: lmichalke
 """
 import json
-#from process_bids import get_bids_filenames_for_econding
 
 CONFIG_FILENAME = 'runconfig.json'
 
@@ -22,34 +21,32 @@ def make_config():
     # User defined variables. Variable names follow BIDS label/value keys if defined there
     arg['bids_dir'] = '/data2/azubaidi/ForrestGumpHearingLoss/BIDS_ForrGump'
     arg['output_dir'] = '/data2/azubaidi/ForrestGumpHearingLoss/BIDS_ForrGump/'\
-        +'derivatives/encoding_results/heschl/removeconfounds/'
+        +'derivatives/encoding_results/temporal_lobe_mask/offset4.25_bandpass0.01-0.1_removeconfounds/nosmoothing/'
     # The label(s) of the participant(s) that should be analyzed. The label corresponds to
     # sub-<participant_label> from the BIDS spec (so it does not include "sub-"). 
     # If this parameter is not provided all subjects should be analyzed. Multiple 
     # participants can be specified with a space separated list.
-#    arg['sub'] = ['09'] #BIDS
+#    arg['sub'] = ['03'] #BIDS
     arg['sub'] = ['03','09'] #BIDS
 #    arg['sub'] = ["01","02","03","04","05","06","07","08","09","10"] #BIDS
     # The label of the session to use. Corresponds to label in ses-<label> in the BIDS directory.
-#    arg['ses'] = ['CS'] #BIDS
+#    arg['ses'] = ['S2'] #BIDS
 #    arg['ses'] = ["01","02","03"] #BIDS
 #    arg['ses'] = ['N4','S2'] #BIDS
     arg['ses'] = ['CS','N4','S2'] #BIDS
     # The task-label to use for training the voxel-wise encoding model. Corresponds 
     # to label in task-<label> in BIDS naming.
-    #arg['task'] = ['aomovieCS','aomovieN4','aomovieS2'] #BIDS
     arg['task'] = ['aomovie'] #BIDS
     arg['rec'] = ['audio'] #BIDS
 #    arg['rec'] = ['noise'] #BIDS
-#    arg['acq'] = ['CS'] #BIDS
+#    arg['acq'] = ['S2'] #BIDS
 #    arg['acq'] = ['N4','S2'] #BIDS
     arg['acq'] = ['CS','N4','S2'] #BIDS
     arg['run'] = ["02","03","04","05","06","07"] #BIDS
-#    arg['run'] = ["02","03"] #BIDS
-#    arg['run'] = ['01'] #BIDS
-#    arg['run'] = ['01','05'] #BIDS
     arg['space'] = ['MNI152NLin2009cAsym'] #BIDS
-#    arg['desc'] = ['preproc'] #BIDS
+    arg['desc'] = ['preproc'] #BIDS
+#    arg['desc'] = ['preprocsmoothed'] #BIDS
+    arg['descboldjson'] = ['preproc'] #BIDS
     arg['scope'] = 'derivatives' #pyBIDS
 #    arg['derivatives'] = ['sorted','fmriprep']
     arg['derivatives'] = True
@@ -69,37 +66,30 @@ def make_config():
     arg['confounds_to_exclude'] = ['rot_x','rot_y','rot_z','trans_x','trans_y',
                                    'trans_z','csf','white_matter']
     arg['save_lagged_stim'] = False
+    arg['save_preprocessed_bold'] = True
     
 #    arg['mask'] = 'epi'
-    arg['mask'] = '/data2/azubaidi/ForrestGumpHearingLoss/BIDS_ForrGump/derivatives/fmriprep/HeschisGyrus/mni_Heschl_ROI.nii.gz'
-#    arg['mask'] = '/data2/azubaidi/ForrestGumpHearingLoss/BIDS_ForrGump/derivatives/fmriprep/TemporalLobeMasks/mni_Temporal_mask_ero5_bin.nii.gz'
+#    arg['mask'] = arg['bids_dir'] + '/derivatives/fmriprep/ROIs/HeschisGyrus/mni_Heschl_ROI.nii.gz'
+    arg['mask'] = arg['bids_dir'] + '/derivatives/fmriprep/ROIs/TemporalLobeMasks/mni_Temporal_mask_ero5_bin.nii.gz'
 #    arg['mask'] = '/data2/lmichalke/github/ANCP/voxelwiseencoding/voxelwiseencoding/sub-03_mask.nii.gz'
     # Some parameters for BOLD preprocessing
-    bold_prep_params = {'standardize': 'zscore', 'detrend': True}
+    TR = 0.85
+    bold_prep_params = {'standardize': 'zscore', 'detrend': True, 't_r': TR, 
+                        'low_pass': 0.1, 'high_pass': 0.01}
     arg['bold_prep_params'] = bold_prep_params
     # 'encoding_params' contains a dict with key-value pairs that are passed as 
     # parameters to the encoding model (by default RidgeCV from sklearn). For more
     # information on the parameters of RidgeCV see the sklearn documentation.
     # If a different encoding model is passed in 'estimator', parameters in
     # 'encoding_params' need to match that estimator's parameters.
-#    encoding_params = {'alphas': [1e-1, 1, 100, 1000], 'cv': 5, 'normalize': True}
     encoding_params = {'alphas': [1e-1, 1, 100, 1000], 'cv': 'leave-one-run-out', 'normalize': True}
     arg['encoding_params'] = encoding_params
     # and for lagging the stimulus - we want to include 6 sec stimulus segments to predict fMRI
 #    lagging_params = {'lag_time': 6}
-    lagging_params = {'lag_time': 6*0.85,'offset_stim':5*0.85}
+    lagging_params = {'lag_time': 6*TR,'offset_stim':5*TR}
     arg['lagging_params'] = lagging_params
     arg['estimator'] = None # default with None is 'RidgeCV'
     
-#    # get the files from the bids directory
-#    bold_files, bold_jsons, stim_tsvs, stim_jsons =\
-#         get_bids_filenames_for_econding(**arg)
-         
-#    arg['bold_files'] = bold_files
-#    arg['bold_jsons'] = bold_jsons
-#    arg['stim_tsvs'] = stim_tsvs
-#    arg['stim_jsons'] = stim_jsons
-
     # write all params to config file
     with open(CONFIG_FILENAME, 'w', encoding='utf-8') as file:
         json.dump(arg, file, indent=4, ensure_ascii=False, sort_keys=True)

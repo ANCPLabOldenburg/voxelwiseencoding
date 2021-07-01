@@ -78,11 +78,12 @@ def get_model_plus_scores(X, y, estimator=None, cv=None, scorer=None,
         cv = KFold(n_splits=cv)
     elif cv == 'leave-one-run-out':
         if run_start_indices is None:
-            raise Exception('Missing run_start_indices')
+            raise Exception('Missing run_start_indices: run_start_indices has'
+                            +' to be defined when setting cv to "leave-one-run-out"')
         else:
             from leave_one_run_out_splitter import LeaveOneRunOutSplitter
             cv = LeaveOneRunOutSplitter(run_start_indices)
-    else:
+    elif not hasattr(cv, 'split'):
         raise Exception(f'Invalid cv parameter: {cv}. Has to be one of int, None,'
                         +'"leave-one-run-out", or cv object that implements a split'
                         +' method.')

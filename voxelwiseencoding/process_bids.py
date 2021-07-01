@@ -21,7 +21,7 @@ from preprocessing import preprocess_bold_fmri, make_X_Y
 from encoding import get_model_plus_scores
 #from sklearn.linear_model import RidgeCV
 import json
-import joblib
+#import joblib
 import numpy as np
 #from nilearn.masking import unmask
 from nilearn.image import load_img#, new_img_like, concat_imgs
@@ -272,10 +272,9 @@ def get_bids_filenames_for_econding(**kwargs):
                           task=kwargs['task'],run=kwargs['run'],
                           scope=kwargs['scope'],suffix=kwargs['bold_suffix'],
                           extension=kwargs['bold_extension'],
-                          #recording=kwargs['rec'],
                           acquisition=kwargs['acq'],
                           space=kwargs['space'],
-                          #desc=kwargs['desc'],
+                          desc=kwargs['desc'],
                           return_type='filename')
     print('Found', len(bold_files),'bold files.')
     for f in bold_files: print(f)
@@ -286,10 +285,9 @@ def get_bids_filenames_for_econding(**kwargs):
                           task=kwargs['task'],run=kwargs['run'],
                           scope=kwargs['scope'],suffix=kwargs['bold_suffix'],
                           extension=kwargs['json_extension'],
-                          #recording=kwargs['rec'],
                           acquisition=kwargs['acq'],
                           space=kwargs['space'],
-                          #desc=kwargs['desc'],
+                          desc=kwargs.get('descboldjson'),
                           return_type='filename')
     print('Found', len(bold_jsons), 'corresponding json files.')
     for f in bold_jsons: print(f)
@@ -302,7 +300,7 @@ def get_bids_filenames_for_econding(**kwargs):
                               scope=kwargs['scope'],suffix=kwargs['confounds_suffix'],
                               extension=kwargs['confounds_extension'],
                               acquisition=kwargs['acq'],
-                              #description=kwargs['confounds_desc'],
+                              desc=kwargs['confounds_desc'],
                               return_type='filename')
         print('Found', len(confound_tsvs),'confounds tsv files.')
         for f in confound_tsvs: print(f)
@@ -401,23 +399,17 @@ def run_model_for_subject(bold_files, bold_json, stim_tsv, stim_json,**kwargs):
     lagging_params = args['lagging_params']
     encoding_params = args['encoding_params']
     
-    #metadata from the first BOLD file only. May not problematic as long as
-    #only one RT is used in all nifties
+    # metadata from the first BOLD file only. May not problematic as long as
+    # only one RT is used in all nifties
     bold_meta={}
     with open(bold_json[0],'r') as fp:
         bold_meta = json.load(fp)
 
-    # get an epi mask
-    # TODO (ancpJR): loading a precomputed mask should be done here. Then mask
-    # field should contain the filename (including path) of the precomputed
-    # mask.
     if args['mask'] == 'epi':
+        # get an epi mask
         mask = compute_epi_mask(bold_files[0])
     else:
         mask = load_img(args['mask'])
-#        mask._data_cache[np.nonzero(mask._data_cache)] = 1
-#        print('!!!!! Warning: Loading a pre-computed brain mask is ',
-#              'currently not supported')
     
     # do BOLD preprocessing      
     preprocessed_bold = []
@@ -435,6 +427,13 @@ def run_model_for_subject(bold_files, bold_json, stim_tsv, stim_json,**kwargs):
             prep_bold, resampled_mask = preprocess_bold_fmri(bold_file, mask=mask,
                                                              **bold_prep_params)
             preprocessed_bold.append(prep_bold)
+            
+    if args.get('save_preprocessed_bold'):
+        from nilearn.masking import unmask
+        from nilearn.image import concat_imgs
+        from nibabel import save
+        bold_preprocessed_nifti = concat_imgs([unmask(bold, resampled_mask) for bold in preprocessed_bold])
+        save(bold_preprocessed_nifti, args['save_preprocessed_bold_path'])
 
     # load stimuli and append their time series 
     stim_meta = []
@@ -454,9 +453,6 @@ def run_model_for_subject(bold_files, bold_json, stim_tsv, stim_json,**kwargs):
         stim_TR, stim_start_times=stim_start_times, 
         save_lagged_stim_path=args.get('save_lagged_stim_path'), **lagging_params)
     
-#    if args.get('save_lagged_stim_all_path'):
-#        joblib.dump(stim_data_lagged,args['save_lagged_stim_all_path'])
-
     # compute ridge and scores for folds
     scores, bold_prediction, train_indices, test_indices = \
         get_model_plus_scores(stim_data_lagged, preprocessed_bold,

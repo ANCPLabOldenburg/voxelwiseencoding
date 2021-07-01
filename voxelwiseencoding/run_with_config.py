@@ -41,8 +41,8 @@ def run_analysis(subject,acq,kwargs):
         if not os.path.exists(lagged_stim_dir):
             os.makedirs(lagged_stim_dir)
         args['save_lagged_stim_path'] = os.path.join(lagged_stim_dir, filename_output+'_desc-laggedstim{0}.pkl')
-#        args['save_lagged_stim_all_path'] = os.path.join(lagged_stim_dir, filename_output+'_desc-laggedstimall.pkl')
-    
+    if args.get('save_preprocessed_bold'):
+        args['save_preprocessed_bold_path'] = os.path.join(output_dir, filename_output+'_desc-boldpreprocessed.nii.gz')
     # run analysis
     scores, mask, bold_prediction, train_indices, test_indices = \
         run_model_for_subject(bold_files, bold_jsons, stim_tsvs, stim_jsons, **args)

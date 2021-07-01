@@ -11,7 +11,7 @@ import os
 OUTPUT_BASE = '/data2/azubaidi/ForrestGumpHearingLoss/BIDS_ForrGump/'\
               +'derivatives/encoding_results/'
     
-def plot_scores(scores_path,save_path):
+def plot_scores(scores_path,save_path,glassbrain_save):
     print('Plotting',save_path)
     from nilearn.image import mean_img, load_img
     from nilearn import plotting
@@ -28,6 +28,8 @@ def plot_scores(scores_path,save_path):
         (avg_max, str(avg_argmax), fold0_max, str(fold0_argmax), total_max, str(total_argmax))
     plotting.plot_stat_map(mean_scores, threshold=0.05, output_file=save_path,
                            title=title)
+    plotting.plot_glass_brain(mean_scores, threshold=0.05, colorbar=True, display_mode='lzry',
+                              output_file=glassbrain_save)
     
 def plot_avg_r2_score_per_fold(scores_path,mask_path,save_path,hist_save=None):
     print('Plotting avg r2 per fold',save_path)
@@ -177,6 +179,7 @@ def plot_highest_score_bold_predicted_vs_actual(path_predicted,path_actual,arg_h
     import nibabel as nib
     import matplotlib.pyplot as plt
     from scipy.stats import zscore
+    
     bold_predicted = nib.load(path_predicted)
     bold = nib.load(path_actual)
     #print(bold_predicted.shape)
@@ -184,8 +187,9 @@ def plot_highest_score_bold_predicted_vs_actual(path_predicted,path_actual,arg_h
     # bold.shape[3] == 1038
     # for some reason loading a 1.4GB file with get_fdata() takes forever and
     # uses up hundreds of GB ?!?
-    bold_predicted_high = bold_predicted.dataobj[arg_highscore][:bold.shape[3]]
-    bold_high = bold.dataobj[arg_highscore]
+    shortest = 1000 #min(bold.shape[3],bold_predicted.shape[3])
+    bold_predicted_high = bold_predicted.dataobj[arg_highscore][:shortest]
+    bold_high = bold.dataobj[arg_highscore][:shortest]
     #print(bold_predicted_high.shape)
     bold_high = zscore(bold_high)
     bold_predicted_high = zscore(bold_predicted_high)
@@ -205,11 +209,11 @@ def plot_original_bold_spectrograms():
     import matplotlib.pyplot as plt
     from scipy.signal import spectrogram, periodogram, welch, hilbert
     from scipy.stats import zscore
-    subjects = ['03']
-    conditions = ['CS']
-#    subjects = ['03','09']
-#    conditions = ['CS','N4','S2']
-    # get file paths
+#    from nilearn.signal import clean
+#    subjects = ['03']
+#    conditions = ['CS']
+    subjects = ['03','09']
+    conditions = ['CS','N4','S2']
     for sub in subjects:
         for acq in conditions:
             bold_base = '/data2/azubaidi/ForrestGumpHearingLoss/BIDS_ForrGump/'\
@@ -225,81 +229,89 @@ def plot_original_bold_spectrograms():
             bold = nib.load(bold_path)
             print(bold.shape)
             voxel = (70,57,40)
-            bold = bold.dataobj[70,57,40,:30]
             TR = 0.85
-#            bold = zscore(bold)
+            bold = bold.dataobj[70,57,40]
+#            bold = clean(bold.reshape((-1,1)),low_pass=0.1,high_pass=0.01,t_r=TR).squeeze()
+            bold = zscore(bold)
+            # Envelope is the magnitude of the analytic signal computed by the 
+            # hilbert transform
+            envelope = np.abs(hilbert(bold))
+#            n_volumes = 100
+#            bold = bold[:n_volumes]
+#            envelope = envelope[:n_volumes]
             plt.plot(bold)
             plt.xlabel('Volume')
-            plt.ylabel('Bold')
+            plt.ylabel('Bold (z-scored)')
             plt.title('Timeseries, voxel %s' % str(voxel))
-#            plt.savefig(bold_save+'bold_timeseries.png')
+            plt.savefig(bold_save+'bold_timeseries.png')
 #            plt.show()
-#            plt.close()
-            
-#            f, t, Sxx = spectrogram(bold, fs=1/TR, nperseg=32)
-#            plt.pcolormesh(t, f, Sxx, shading='gourad')
-#            plt.xlabel('Time (s)')
-#            plt.ylabel('Frequency (Hz)')
-#            plt.title('Spectrogram, voxel %s' % str(voxel))
-#            plt.savefig(bold_save+'bold_spectrogram_FFT.png')
-##            plt.show()
-#            plt.close()
-#            
-#            f, Pxx = periodogram(bold, fs=1/TR)
-#            plt.semilogy(f,Pxx)
-#            plt.xlabel('Frequency (Hz)')
-#            plt.ylabel('PSD (V²/Hz)')
-#            plt.title('Periodogram, voxel %s' % str(voxel))
-#            plt.savefig(bold_save+'bold_periodogram.png')
-##            plt.show()
-#            plt.close()
-#            
-#            f, Pxx = welch(bold, fs=1/TR)
-#            plt.semilogy(f,Pxx)
-#            plt.xlabel('Frequency (Hz)')
-#            plt.ylabel('PSD (V²/Hz)')
-#            plt.title('Welch PSD, voxel %s' % str(voxel))
-#            plt.savefig(bold_save+'bold_periodogram_welch.png')
-##            plt.show()
-#            plt.close()
-            
-            # Envelope is the magnitude of the analytic signal computed by hilbert
-            envelope = np.abs(hilbert(bold))
-            plt.plot(envelope)
-#            plt.ylim(8600,8700)
-            plt.xlabel('Volume')
-            plt.ylabel('Bold')
-            plt.title('Envelope, voxel %s' % str(voxel))
-#            plt.savefig(bold_save+'envelope_timeseries.png')
-            plt.show()
             plt.close()
             
-#            f, t, Sxx = spectrogram(envelope, fs=1/TR, nperseg=32)
-#            plt.pcolormesh(t, f, Sxx, shading='gourad')
-#            plt.xlabel('Time (s)')
-#            plt.ylabel('Frequency (Hz)')
-#            plt.title('Envelope sectrogram, voxel %s' % str(voxel))
-#            plt.savefig(bold_save+'envelope_spectrogram_FFT.png')
-##            plt.show()
-#            plt.close()
-#            
-#            f, Pxx = periodogram(envelope, fs=1/TR)
-#            plt.semilogy(f,Pxx)
-#            plt.xlabel('Frequency (Hz)')
-#            plt.ylabel('PSD (V²/Hz)')
-#            plt.title('Envelope periodogram, voxel %s' % str(voxel))
-#            plt.savefig(bold_save+'envelope_periodogram.png')
-##            plt.show()
-#            plt.close()
-#            
-#            f, Pxx = welch(envelope, fs=1/TR)
-#            plt.semilogy(f,Pxx)
-#            plt.xlabel('Frequency (Hz)')
-#            plt.ylabel('PSD (V²/Hz)')
-#            plt.title('Envelope Welch PSD, voxel %s' % str(voxel))
-#            plt.savefig(bold_save+'envelope_periodogram_welch.png')
-##            plt.show()
-#            plt.close()
+            f, t, Sxx = spectrogram(bold, fs=1/TR, nperseg=64)
+            plt.pcolormesh(t, f, Sxx, shading='gourad')
+            plt.xlabel('Time (s)')
+            plt.ylabel('Frequency (Hz)')
+            plt.title('Spectrogram, voxel %s' % str(voxel))
+            plt.savefig(bold_save+'bold_spectrogram_FFT.png')
+#            plt.show()
+            plt.close()
+            
+            f, Pxx = periodogram(bold, fs=1/TR)
+            plt.semilogy(f[1:],Pxx[1:])
+            plt.xlabel('Frequency (Hz)')
+            plt.ylabel('PSD (V²/Hz)')
+            plt.title('Periodogram, voxel %s' % str(voxel))
+            plt.savefig(bold_save+'bold_periodogram.png')
+#            plt.show()
+            plt.close()
+            
+            f, Pxx = welch(bold, fs=1/TR)
+            plt.semilogy(f,Pxx)
+            plt.xlabel('Frequency (Hz)')
+            plt.ylabel('PSD (V²/Hz)')
+            plt.title('Welch PSD, voxel %s' % str(voxel))
+            plt.savefig(bold_save+'bold_periodogram_welch.png')
+#            plt.show()
+            plt.close()
+            
+            plt.plot(bold,label='Bold')
+            plt.plot(envelope,label='Envelope')
+#            plt.plot(-envelope)
+#            plt.ylim(8600,8700)
+            plt.xlabel('Volume')
+            plt.ylabel('Bold (z-scored)')
+            plt.legend()
+            plt.title('Envelope, voxel %s' % str(voxel))
+            plt.savefig(bold_save+'envelope_timeseries.png')
+#            plt.show()
+            plt.close()
+            
+            f, t, Sxx = spectrogram(envelope, fs=1/TR, nperseg=64)
+            plt.pcolormesh(t, f, Sxx, shading='gourad')
+            plt.xlabel('Time (s)')
+            plt.ylabel('Frequency (Hz)')
+            plt.title('Envelope spectrogram, voxel %s' % str(voxel))
+            plt.savefig(bold_save+'envelope_spectrogram_FFT.png')
+#            plt.show()
+            plt.close()
+            
+            f, Pxx = periodogram(envelope, fs=1/TR)
+            plt.semilogy(f[1:],Pxx[1:])
+            plt.xlabel('Frequency (Hz)')
+            plt.ylabel('PSD (V²/Hz)')
+            plt.title('Envelope periodogram, voxel %s' % str(voxel))
+            plt.savefig(bold_save+'envelope_periodogram.png')
+#            plt.show()
+            plt.close()
+            
+            f, Pxx = welch(envelope, fs=1/TR)
+            plt.semilogy(f,Pxx)
+            plt.xlabel('Frequency (Hz)')
+            plt.ylabel('PSD (V²/Hz)')
+            plt.title('Envelope Welch PSD, voxel %s' % str(voxel))
+            plt.savefig(bold_save+'envelope_periodogram_welch.png')
+#            plt.show()
+            plt.close()
             
     
 def get_max_coefs(ridges_path,mask_path,arg_highscore):
@@ -325,7 +337,8 @@ def plot_max_coefs(max_coefs,save_path):
                        2696, 2874, 3064, 3266, 3482, 3712, 3957, 4219, 4497, 
                        4795, 5112, 5449, 5809, 6193, 6603, 7039, 7504, 8000]
     n_lag_bins = max_coefs.shape[0]
-    x_ticks = np.arange(-n_lag_bins,0)*0.025
+    lagging_offset = 4.25
+    x_ticks = (np.arange(-n_lag_bins, 0) * 0.025) - lagging_offset
     x_stride = 20
     plt.imshow(max_coefs.T,aspect='auto',origin='lower')
     plt.gca().set_yticks(np.arange(0,nmel,nmel_stride))
@@ -421,25 +434,27 @@ if __name__=='__main__':
     import time
     tic = time.time()
 #    gather_files_and_plot_avg_r2()
-    plot_original_bold_spectrograms()
+#    plot_original_bold_spectrograms()
     output_dirs = [
-                   OUTPUT_BASE+'temporal_lobe_mask/masked/',
-                   OUTPUT_BASE+'temporal_lobe_mask/masked_alwaysCS/',
-                   OUTPUT_BASE+'temporal_lobe_mask/masked_alwaysCS_removeconfounds/',
-                   OUTPUT_BASE+'temporal_lobe_mask/masked_noise/',
-                   OUTPUT_BASE+'heschl/offset0/allstim/',
-                   OUTPUT_BASE+'heschl/offset0/alwaysCS/',
-                   OUTPUT_BASE+'heschl/offset0/removeconfounds/',
+#                   OUTPUT_BASE+'temporal_lobe_mask/masked/',
+#                   OUTPUT_BASE+'temporal_lobe_mask/masked_alwaysCS/',
+#                   OUTPUT_BASE+'temporal_lobe_mask/masked_alwaysCS_removeconfounds/',
+#                   OUTPUT_BASE+'temporal_lobe_mask/masked_noise/',
+#                   OUTPUT_BASE+'heschl/offset0/allstim/',
+#                   OUTPUT_BASE+'heschl/offset0/alwaysCS/',
+#                   OUTPUT_BASE+'heschl/offset0/removeconfounds/',
+                   OUTPUT_BASE+'heschl/offset4.25_bandpass0.01-0.1_removeconfounds/nosmoothing/',
+                   OUTPUT_BASE+'heschl/offset4.25_bandpass0.01-0.1_removeconfounds/smoothing/'
                    ]
     subjects = ['03','09']
-#    subjects = ['03']
     conditions = ['CS','N4','S2']
+#    subjects = ['03']
 #    conditions = ['CS']
     runs = ["02","03","04","05","06","07"]
-    do_scores = False
-    do_bold_predicted_vs_actual = False
-    do_max_coefs = False
-    do_avg_r2_per_fold = False
+    do_scores = True
+    do_bold_predicted_vs_actual = True
+    do_max_coefs = True
+    do_avg_r2_per_fold = True
     do_lagged_stim = False
     do_orig_stim = False
     for output_dir in output_dirs:
@@ -455,18 +470,20 @@ if __name__=='__main__':
                     continue
                 bids_str = acq_dir + f'sub-{sub}_task-aomovie_acq-{acq}_desc-'
                 scores_path = bids_str + 'scores.nii.gz'
-                scores_save = bids_str + 'scores.png'
                 if do_scores:
-                    plot_scores(scores_path,scores_save)
+                    scores_save = bids_str + 'scores.png'
+                    scores_glassbrain_save = bids_str + 'scoresglassbrain.png'
+                    plot_scores(scores_path,scores_save,scores_glassbrain_save)
                 if do_bold_predicted_vs_actual or do_max_coefs:
                     arg_highscore = get_arg_highscore(scores_path)
                 if do_bold_predicted_vs_actual:
                     bold_predicted = bids_str + 'boldprediction.nii.gz'
                     bold_save = bids_str + 'boldprediction.png'
-                    bold_actual = '/data2/azubaidi/ForrestGumpHearingLoss/BIDS_ForrGump/'\
-                        +f'derivatives/fmriprep/sub-{sub}/ses-{acq}/func/sub-{sub}_ses-{acq}'\
-                        +f'_task-aomovie_acq-{acq}_run-2_space-MNI152NLin2009cAsym_res-'\
-                        +'2_desc-preproc_bold.nii.gz'
+#                    bold_actual = '/data2/azubaidi/ForrestGumpHearingLoss/BIDS_ForrGump/'\
+#                        +f'derivatives/fmriprep/sub-{sub}/ses-{acq}/func/sub-{sub}_ses-{acq}'\
+#                        +f'_task-aomovie_acq-{acq}_run-2_space-MNI152NLin2009cAsym_res-'\
+#                        +'2_desc-preproc_bold.nii.gz'
+                    bold_actual = bids_str + 'boldpreprocessed.nii.gz'
                     plot_highest_score_bold_predicted_vs_actual(bold_predicted,bold_actual,
                                                                 arg_highscore,bold_save)
                 if do_max_coefs:
@@ -495,9 +512,10 @@ if __name__=='__main__':
                         S2_str = os.path.join(sub_dir,f'acq-S2/sub-{sub}_task-aomovie_acq-S2_desc-')
                         S2scores = N4_str + 'scores.nii.gz'
                         S2mask = N4_str + 'mask.pkl'
-                        plot_avg_r2_all_conditions([scores_path,N4scores,S2scores],
-                                                   [mask_path,N4mask,S2mask],
-                                                   allcond_save)
+                        if os.path.exists(N4scores) and os.path.exists(S2scores):
+                            plot_avg_r2_all_conditions([scores_path,N4scores,S2scores],
+                                                       [mask_path,N4mask,S2mask],
+                                                       allcond_save)
                 if do_lagged_stim or do_orig_stim:
                     lagged_stim_dir = os.path.join(acq_dir,'lagged_stim/')
                     if not os.path.exists(lagged_stim_dir):
