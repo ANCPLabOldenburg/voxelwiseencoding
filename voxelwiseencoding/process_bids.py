@@ -21,7 +21,7 @@ from preprocessing import preprocess_bold_fmri, make_X_Y
 from encoding import get_model_plus_scores
 #from sklearn.linear_model import RidgeCV
 import json
-#import joblib
+import joblib
 import numpy as np
 #from nilearn.masking import unmask
 from nilearn.image import load_img#, new_img_like, concat_imgs
@@ -428,12 +428,12 @@ def run_model_for_subject(bold_files, bold_json, stim_tsv, stim_json,**kwargs):
                                                              **bold_prep_params)
             preprocessed_bold.append(prep_bold)
             
-    if args.get('save_preprocessed_bold'):
-        from nilearn.masking import unmask
-        from nilearn.image import concat_imgs
-        from nibabel import save
-        bold_preprocessed_nifti = concat_imgs([unmask(bold, resampled_mask) for bold in preprocessed_bold])
-        save(bold_preprocessed_nifti, args['save_preprocessed_bold_path'])
+#    if args.get('save_preprocessed_bold'):
+#        from nilearn.masking import unmask
+#        from nilearn.image import concat_imgs
+#        from nibabel import save
+#        bold_preprocessed_nifti = concat_imgs([unmask(bold, resampled_mask) for bold in preprocessed_bold])
+#        save(bold_preprocessed_nifti, args['save_preprocessed_bold_path'])
 
     # load stimuli and append their time series 
     stim_meta = []
@@ -453,6 +453,9 @@ def run_model_for_subject(bold_files, bold_json, stim_tsv, stim_json,**kwargs):
         stim_TR, stim_start_times=stim_start_times, 
         save_lagged_stim_path=args.get('save_lagged_stim_path'), **lagging_params)
     
+    if args.get('save_preprocessed_bold'):
+        joblib.dump(preprocessed_bold, args['save_preprocessed_bold_path'])
+        
     # compute ridge and scores for folds
     scores, bold_prediction, train_indices, test_indices = \
         get_model_plus_scores(stim_data_lagged, preprocessed_bold,

@@ -5,8 +5,12 @@ Created on Thu Jun 17 22:18:41 2021
 
 @author: lmichalke
 """
-import numpy as np
 import os
+import numpy as np
+import joblib
+import matplotlib.pyplot as plt
+from nilearn.image import load_img
+from nilearn.masking import apply_mask
 
 OUTPUT_BASE = '/data2/azubaidi/ForrestGumpHearingLoss/BIDS_ForrGump/'\
               +'derivatives/encoding_results/'
@@ -15,6 +19,10 @@ def plot_scores(scores_path,save_path,glassbrain_save):
     print('Plotting',save_path)
     from nilearn.image import mean_img, load_img
     from nilearn import plotting
+    temporal_lobe_mask = "/data2/azubaidi/ForrestGumpHearingLoss/BIDS_ForrGump/"\
+        + "derivatives/fmriprep/ROIs/TemporalLobeMasks/mni_Temporal_mask_ero5_bin.nii.gz"
+    heschl_mask = "/data2/azubaidi/ForrestGumpHearingLoss/BIDS_ForrGump/"\
+        + "derivatives/fmriprep/ROIs/HeschisGyrus/mni_Heschl_ROI.nii.gz"
     mean_scores = mean_img(scores_path)
     img = load_img(scores_path)
     data = img.dataobj
@@ -26,112 +34,94 @@ def plot_scores(scores_path,save_path,glassbrain_save):
     fold0_argmax = np.unravel_index(np.argmax(data[...,0]), data.shape[:-1])
     title = 'Avg%.3f%sfold0 %.3f%stotal%.3f%s' % \
         (avg_max, str(avg_argmax), fold0_max, str(fold0_argmax), total_max, str(total_argmax))
-    plotting.plot_stat_map(mean_scores, threshold=0.05, output_file=save_path,
-                           title=title)
-    plotting.plot_glass_brain(mean_scores, threshold=0.05, colorbar=True, display_mode='lzry',
-                              output_file=glassbrain_save)
+    display = plotting.plot_stat_map(mean_scores, threshold=0.05, title=title)
+#    display.add_contours(temporal_lobe_mask,filled=False,colors='m')
+#    display.add_contours(heschl_mask,filled=False,colors='g')
+    plt.gcf().savefig(save_path)
+    plt.close()
+    display = plotting.plot_glass_brain(mean_scores, threshold=0.05, colorbar=True,
+                                        display_mode='lzry', plot_abs=False)
+    display.add_contours(temporal_lobe_mask,filled=False,colors='m')
+    display.add_contours(heschl_mask,filled=False,colors='g')
+    # proxy artist trick to make legend
+    from matplotlib.patches import Rectangle
+    cont1 = Rectangle((0,0),1,1,fc="magenta")
+    cont2 = Rectangle((0,0),1,1,fc="green")
+    plt.legend([cont1,cont2],['Temporal lobe','Heschls gyrus'])
+    plt.gcf().savefig(glassbrain_save)
+    plt.close()
     
-def plot_avg_r2_score_per_fold(scores_path,mask_path,save_path,hist_save=None):
-    print('Plotting avg r2 per fold',save_path)
-    import joblib
-    import matplotlib.pyplot as plt
-    from nilearn.image import load_img
-    from nilearn.masking import apply_mask
+def plot_avg_score(scores_path,mask_path,cond=None,offset=0):
     scores = load_img(scores_path)
     mask = joblib.load(mask_path)
     scores = apply_mask(scores,mask)
-    r2 = np.square(scores)
-    #print(r2.shape)
-    avgs = np.mean(r2,axis=1) # mean across all voxels for each fold
-    stds = np.std(r2,axis=1) # std across all voxels for each fold
-    plt.errorbar(np.arange(len(avgs)),avgs,yerr=stds,linestyle='None',marker='o')
+#    scores = np.square(scores) # R to R^2
+    #print(scores.shape)
+#    avgs = np.mean(scores,axis=1) # mean across all voxels for each fold
+#    stds = np.std(scores,axis=1) # std across all voxels for each fold
+    thresh = 0.05
+    # mean and std across all voxels where R > threshold for each fold
+    avgs = [np.mean(scores_fold_i[scores_fold_i>thresh]) for scores_fold_i in scores]
+    stds = [np.std(scores_fold_i[scores_fold_i>thresh]) for scores_fold_i in scores]
+    plt.errorbar(np.arange(len(avgs))+offset,avgs,yerr=stds,linestyle='None',
+                 marker='o',label=cond)
+    
+def plot_avg_score_per_fold(scores_path,mask_path,save_path,hist_save=None):
+    print('Plotting avg score per fold',save_path)
+    plot_avg_score(scores_path,mask_path)
     plt.xlabel('Cross-validation fold')
-    plt.ylabel('R2 averaged over voxels')
+    plt.ylabel('R averaged over voxels where R>0.05')
     plt.gcf().tight_layout()
 #    plt.show()
     plt.savefig(save_path)
     plt.close()
     
-    if hist_save is not None:
-        fig, axes = plt.subplots(2,3)
-        for i, ax in enumerate(axes.reshape(-1)):
-            plt.sca(ax)
-            ax.set_xlim(0,0.2)
-            ax.set_ylim(0,1000)
-            plt.hist(r2[i])
-            plt.title('Fold %d' % i)
-            if i>2:
-                plt.xlabel('R2')
-            if i%3==0:
-                plt.ylabel('Count')
-        plt.gcf().tight_layout()
-    #    plt.show()
-        plt.savefig(hist_save)
-        plt.close()
-    
-#    x,y,z,folds = r2.shape
-#    n_voxels = x*y*z
-#    voxel2fold = np.repeat(np.arange(folds),n_voxels) + 0.1*np.random.randn(n_voxels*folds)
-#    plt.scatter(voxel2fold,r2.reshape(-1))
-#    plt.xlabel('Cross-validation fold')
-#    plt.ylabel('R2')
-##    plt.show()
-#    plt.savefig(save_path)
-#    plt.close()
+#    if hist_save is not None:
+#        fig, axes = plt.subplots(2,3)
+#        for i, ax in enumerate(axes.reshape(-1)):
+#            plt.sca(ax)
+#            ax.set_xlim(0,0.2)
+#            ax.set_ylim(0,1000)
+#            plt.hist(r2[i])
+#            plt.title('Fold %d' % i)
+#            if i>2:
+#                plt.xlabel('R2')
+#            if i%3==0:
+#                plt.ylabel('Count')
+#        plt.gcf().tight_layout()
+#    #    plt.show()
+#        plt.savefig(hist_save)
+#        plt.close()
         
-def plot_avg_r2_all_conditions(scores_paths,mask_paths,save_path):
-    print('Plotting avg r2 all conditions',save_path)
-    import joblib
-    import matplotlib.pyplot as plt
-    from nilearn.image import load_img
-    from nilearn.masking import apply_mask
+def plot_avg_score_all_conditions(scores_paths,mask_paths,save_path):
+    print('Plotting avg score all conditions',save_path)
     conds = ['CS','N4','S2']
     offsets = [-0.1,0.0,0.1]
     for scores_path,mask_path,cond,offset in zip(scores_paths,mask_paths,conds,offsets):
-        scores = load_img(scores_path)
-        mask = joblib.load(mask_path)
-        scores = apply_mask(scores,mask)
-        r2 = np.square(scores)
-        #print(r2.shape)
-        avgs = np.mean(r2,axis=1) # mean across all voxels for each fold
-        stds = np.std(r2,axis=1) # std across all voxels for each fold
-        plt.errorbar(np.arange(len(avgs))+offset,avgs,yerr=stds,linestyle='None',
-                     marker='o',label=cond)
+        plot_avg_score(scores_path,mask_path,cond,offset)
     plt.xlabel('Cross-validation fold')
-    plt.ylabel('R2 averaged over voxels')
+    plt.ylabel('R averaged over voxels where R>0.05')
     plt.legend(loc='upper left')
     plt.gcf().tight_layout()
 #    plt.show()
     plt.savefig(save_path)
     plt.close()
     
-def plot_avg_r2_all_conditions_plus_diffs(scores_paths,mask_paths,save_path):
-    print('Plotting avg r2 all conditions plus diffs',save_path)
-    import joblib
-    import matplotlib.pyplot as plt
-    from nilearn.image import load_img
-    from nilearn.masking import apply_mask
+def plot_avg_score_all_conditions_plus_diffs(scores_paths,mask_paths,save_path):
+    print('Plotting avg score all conditions plus diffs',save_path)
     conds = ['CS-CS','N4-N4','S2-S2','CS-N4','CS-S2']
     offsets = [-0.2,-0.1,0.0,0.1,0.2]
     for scores_path,mask_path,cond,offset in zip(scores_paths,mask_paths,conds,offsets):
-        scores = load_img(scores_path)
-        mask = joblib.load(mask_path)
-        scores = apply_mask(scores,mask)
-        r2 = np.square(scores)
-        #print(r2.shape)
-        avgs = np.mean(r2,axis=1) # mean across all voxels for each fold
-        stds = np.std(r2,axis=1) # std across all voxels for each fold
-        plt.errorbar(np.arange(len(avgs))+offset,avgs,yerr=stds,linestyle='None',
-                     marker='o',label=cond)
+        plot_avg_score(scores_path,mask_path,cond,offset)
     plt.xlabel('Cross-validation fold')
-    plt.ylabel('R2 averaged over voxels')
+    plt.ylabel('R averaged over voxels where R>0.05')
     plt.legend(loc='upper left')
     plt.gcf().tight_layout()
 #    plt.show()
     plt.savefig(save_path)
     plt.close()
     
-def gather_files_and_plot_avg_r2():
+def gather_files_and_plot_avg_scores():
     output_dirs = [
                    OUTPUT_BASE+'heschl/offset0/allstim/',
                    OUTPUT_BASE+'heschl/offset0/alwaysCS/',
@@ -158,8 +148,8 @@ def gather_files_and_plot_avg_r2():
                 scores_paths.append(scores_path)
                 mask_paths.append(mask_path)
                 if not save_path:
-                    save_path = bids_str + 'r2all.png'
-        plot_avg_r2_all_conditions_plus_diffs(scores_paths,mask_paths,save_path)
+                    save_path = bids_str + 'scoresall.png'
+        plot_avg_score_all_conditions_plus_diffs(scores_paths,mask_paths,save_path)
     
 def get_arg_highscore(scores_path):
     import nibabel as nib
@@ -187,12 +177,22 @@ def plot_highest_score_bold_predicted_vs_actual(path_predicted,path_actual,arg_h
     # bold.shape[3] == 1038
     # for some reason loading a 1.4GB file with get_fdata() takes forever and
     # uses up hundreds of GB ?!?
-    shortest = 1000 #min(bold.shape[3],bold_predicted.shape[3])
-    bold_predicted_high = bold_predicted.dataobj[arg_highscore][:shortest]
-    bold_high = bold.dataobj[arg_highscore][:shortest]
-    #print(bold_predicted_high.shape)
-    bold_high = zscore(bold_high)
+    start = 50
+    shortest = 900 #min(bold.shape[3],bold_predicted.shape[3])
+    offset = -11 # 11 * 0.85s = 9.35s = 5.1s lag + 4.25s offset
+    x,y,z = arg_highscore
+    bold_predicted_high = bold_predicted.dataobj[x,y,z,start+offset:start+offset+shortest]
     bold_predicted_high = zscore(bold_predicted_high)
+    bold_high = bold.dataobj[x,y,z,start:start+shortest]
+    bold_high = zscore(bold_high)
+#    offsets = np.arange(-50,50)
+#    res = []
+#    for offset in offsets:
+#        bold_predicted_high = bold_predicted.dataobj[x,y,z,start+offset:start+offset+shortest]
+#        bold_predicted_high = zscore(bold_predicted_high)
+#        res.append(product_moment_corr(bold_predicted_high,bold_high))
+#    res = np.asarray(res)
+#    plt.plot(res)
     plt.plot(bold_predicted_high,label='Predicted bold')
     plt.plot(bold_high,label='Actual bold')
     plt.legend()
@@ -201,7 +201,9 @@ def plot_highest_score_bold_predicted_vs_actual(path_predicted,path_actual,arg_h
     plt.title('Predicted vs actual bold, voxel %s, r=%.4f' % (str(arg_highscore),\
               product_moment_corr(bold_predicted_high,bold_high)))
     plt.savefig(save_path)
+#    plt.show()
     plt.close()
+#    print(np.argmax(res),np.max(res))
     #print(product_moment_corr(bold_predicted_high,bold_high))
 
 def plot_original_bold_spectrograms():
@@ -433,7 +435,7 @@ def plot_lagged_stimulus_spectrograms(spec_path,save_path):
 if __name__=='__main__':
     import time
     tic = time.time()
-#    gather_files_and_plot_avg_r2()
+#    gather_files_and_plot_avg_scores()
 #    plot_original_bold_spectrograms()
     output_dirs = [
 #                   OUTPUT_BASE+'temporal_lobe_mask/masked/',
@@ -445,16 +447,18 @@ if __name__=='__main__':
 #                   OUTPUT_BASE+'heschl/offset0/removeconfounds/',
                    OUTPUT_BASE+'heschl/offset4.25_bandpass0.01-0.1_removeconfounds/nosmoothing/',
                    OUTPUT_BASE+'heschl/offset4.25_bandpass0.01-0.1_removeconfounds/smoothing/'
+#                   OUTPUT_BASE+'temporal_lobe_mask/offset4.25_bandpass0.01-0.1_removeconfounds/nosmoothing/',
+#                   OUTPUT_BASE+'temporal_lobe_mask/offset4.25_bandpass0.01-0.1_removeconfounds/smoothing/'
                    ]
     subjects = ['03','09']
     conditions = ['CS','N4','S2']
 #    subjects = ['03']
 #    conditions = ['CS']
     runs = ["02","03","04","05","06","07"]
-    do_scores = True
+    do_scores = False
     do_bold_predicted_vs_actual = True
-    do_max_coefs = True
-    do_avg_r2_per_fold = True
+    do_max_coefs = False
+    do_avg_scores_per_fold = False
     do_lagged_stim = False
     do_orig_stim = False
     for output_dir in output_dirs:
@@ -499,13 +503,13 @@ if __name__=='__main__':
                     elif max_coefs_CS is not None:
                         max_coefs = get_max_coefs(ridges_path,mask_path,arg_highscore_CS)
                         plot_max_coef_diff(max_coefs,max_coefs_CS,max_coefs_diff_save)
-                if do_avg_r2_per_fold:
+                if do_avg_scores_per_fold:
                     mask_path = bids_str + 'mask.pkl'
-                    r2_save = bids_str + 'r2avg.png'
-                    hist_save = bids_str + 'r2hist.png'
-                    plot_avg_r2_score_per_fold(scores_path,mask_path,r2_save,hist_save)
+                    r2_save = bids_str + 'scoresavg.png'
+#                    hist_save = bids_str + 'r2hist.png'
+                    plot_avg_score_per_fold(scores_path,mask_path,r2_save)
                     if acq=='CS': 
-                        allcond_save = bids_str + 'r2allcond.png'
+                        allcond_save = bids_str + 'scoresallcond.png'
                         N4_str = os.path.join(sub_dir,f'acq-N4/sub-{sub}_task-aomovie_acq-N4_desc-')
                         N4scores = N4_str + 'scores.nii.gz'
                         N4mask = N4_str + 'mask.pkl'
@@ -513,9 +517,9 @@ if __name__=='__main__':
                         S2scores = N4_str + 'scores.nii.gz'
                         S2mask = N4_str + 'mask.pkl'
                         if os.path.exists(N4scores) and os.path.exists(S2scores):
-                            plot_avg_r2_all_conditions([scores_path,N4scores,S2scores],
-                                                       [mask_path,N4mask,S2mask],
-                                                       allcond_save)
+                            plot_avg_score_all_conditions([scores_path,N4scores,S2scores],
+                                                          [mask_path,N4mask,S2mask],
+                                                          allcond_save)
                 if do_lagged_stim or do_orig_stim:
                     lagged_stim_dir = os.path.join(acq_dir,'lagged_stim/')
                     if not os.path.exists(lagged_stim_dir):
