@@ -21,13 +21,13 @@ from preprocessing import preprocess_bold_fmri, make_X_Y
 from encoding import get_model_plus_scores
 #from sklearn.linear_model import RidgeCV
 import json
-import joblib
+#import joblib
 import numpy as np
-#from nilearn.masking import unmask
-from nilearn.image import load_img#, new_img_like, concat_imgs
+from nilearn.image import load_img#, new_img_like
+from nilearn.image import concat_imgs
 from nilearn.masking import compute_epi_mask
-#from nibabel import save
-
+from nilearn.masking import unmask
+from nibabel import save
 
 
 # Cell
@@ -413,6 +413,7 @@ def run_model_for_subject(bold_files, bold_json, stim_tsv, stim_json,**kwargs):
     
     # do BOLD preprocessing      
     preprocessed_bold = []
+    masks = []
     if args.get('remove_confounds'):
         import pandas as pd
         for bold_file, confound_tsv in zip(bold_files,args['confound_tsvs']):
@@ -422,18 +423,13 @@ def run_model_for_subject(bold_files, bold_json, stim_tsv, stim_json,**kwargs):
                                                              confounds=confounds,
                                                              **bold_prep_params)
             preprocessed_bold.append(prep_bold)
+            masks.append(resampled_mask)
     else:
         for bold_file in bold_files:
             prep_bold, resampled_mask = preprocess_bold_fmri(bold_file, mask=mask,
                                                              **bold_prep_params)
             preprocessed_bold.append(prep_bold)
-            
-#    if args.get('save_preprocessed_bold'):
-#        from nilearn.masking import unmask
-#        from nilearn.image import concat_imgs
-#        from nibabel import save
-#        bold_preprocessed_nifti = concat_imgs([unmask(bold, resampled_mask) for bold in preprocessed_bold])
-#        save(bold_preprocessed_nifti, args['save_preprocessed_bold_path'])
+            masks.append(resampled_mask)
 
     # load stimuli and append their time series 
     stim_meta = []
@@ -454,8 +450,12 @@ def run_model_for_subject(bold_files, bold_json, stim_tsv, stim_json,**kwargs):
         save_lagged_stim_path=args.get('save_lagged_stim_path'), **lagging_params)
     
     if args.get('save_preprocessed_bold'):
-        joblib.dump(preprocessed_bold, args['save_preprocessed_bold_path'])
+        bold_preprocessed_nifti = concat_imgs([unmask(bold, resampled_mask) 
+                                               for bold,resampled_mask in zip(preprocessed_bold,masks)])
+        save(bold_preprocessed_nifti, args['save_preprocessed_bold_path'])
         
+    preprocessed_bold = np.vstack(preprocessed_bold)
+    
     # compute ridge and scores for folds
     scores, bold_prediction, train_indices, test_indices = \
         get_model_plus_scores(stim_data_lagged, preprocessed_bold,
@@ -464,4 +464,4 @@ def run_model_for_subject(bold_files, bold_json, stim_tsv, stim_json,**kwargs):
                               model_dump_path=args.get('model_dump_path'),
                               **encoding_params)
         
-    return scores, resampled_mask, bold_prediction, train_indices, test_indices
+    return scores, masks, bold_prediction, train_indices, test_indices

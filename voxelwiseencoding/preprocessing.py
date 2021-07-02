@@ -295,15 +295,22 @@ def make_X_Y(stimuli, fmri, TR, stim_TR, lag_time=6.0, stim_start_times=None,
         if save_lagged_stim_path:
             joblib.dump(stimulus, save_lagged_stim_path.format(i))
         # remove nans in stim/fmri here
-        #TODO ancpJR: where would they com from. Delete?
+        # ancpJR: where would they com from. Delete?
+        # The nans are added in generate_lagged_stimulus at the start of lagged
+        # copies of the stimulus. As a result all timepoints before 
+        # lag_time + offset_stim are removed in both the stimulus and bold
+        # timeseries.
         if remove_nans:
             remove_idx = get_remove_idx(stimulus, remove_nans)
             stimulus = np.delete(stimulus, remove_idx, axis=0)
             fmri_run = np.delete(fmri_run, remove_idx, axis=0)
 
         # remove fmri samples recorded after stimulus has ended
-        # TODO ancpJr: This code block assumes that TR == stim_TR. 
-        # (compares indices). Why allow two values then? 
+        # ancpJr: This code block assumes that TR == stim_TR. 
+        # (compares indices). Why allow two values then?
+        # TR and stim_TR are distinct values when passed to this function.
+        # generate_lagged_stimulus resamples the stimulus from stim_TR to
+        # TR, so effectively the stim TR is equal to TR.
         if fmri_run.shape[0] != stimulus.shape[0]:
             # check if the difference is due to offsetting and warn if not
             if np.round(offset_stim/TR) < abs(fmri_run.shape[0] - 
@@ -326,4 +333,4 @@ def make_X_Y(stimuli, fmri, TR, stim_TR, lag_time=6.0, stim_start_times=None,
         
         run_start_indices.append(start_index)
         start_index += stimulus.shape[0]
-    return np.vstack(lagged_stimuli), np.vstack(aligned_fmri), run_start_indices
+    return np.vstack(lagged_stimuli), aligned_fmri, run_start_indices

@@ -42,22 +42,22 @@ def run_analysis(subject,acq,kwargs):
             os.makedirs(lagged_stim_dir)
         args['save_lagged_stim_path'] = os.path.join(lagged_stim_dir, filename_output+'_desc-laggedstim{0}.pkl')
     if args.get('save_preprocessed_bold'):
-#        args['save_preprocessed_bold_path'] = os.path.join(output_dir, filename_output+'_desc-boldpreprocessed.nii.gz')
-        args['save_preprocessed_bold_path'] = os.path.join(output_dir, filename_output+'_desc-boldpreprocessed.pkl')
+        args['save_preprocessed_bold_path'] = os.path.join(output_dir, filename_output+'_desc-boldpreprocessed.nii.gz')
+#        args['save_preprocessed_bold_path'] = os.path.join(output_dir, filename_output+'_desc-boldpreprocessed.pkl')
     # run analysis
-    scores, mask, bold_prediction, train_indices, test_indices = \
+    scores, masks, bold_prediction, train_indices, test_indices = \
         run_model_for_subject(bold_files, bold_jsons, stim_tsvs, stim_jsons, **args)
 
     #save outputs
     #joblib.dump(ridges, os.path.join(output_dir, '{0}_desc-ridges.pkl'.format(filename_output)))
-    joblib.dump(mask, os.path.join(output_dir, '{0}_desc-mask.pkl'.format(filename_output)))
+    joblib.dump(masks, os.path.join(output_dir, '{0}_desc-masks.pkl'.format(filename_output)))
     joblib.dump(train_indices, os.path.join(output_dir, '{0}_desc-trainindices.pkl'.format(filename_output)))
     joblib.dump(test_indices, os.path.join(output_dir, '{0}_desc-testindices.pkl'.format(filename_output)))
     
-    scores_bold = concat_imgs([unmask(scores_fold, mask) for scores_fold in scores.T])
+    scores_bold = concat_imgs([unmask(scores_fold, mask) for scores_fold, mask in zip(scores.T, masks)])
     save(scores_bold, os.path.join(output_dir, '{0}_desc-scores.nii.gz'.format(filename_output)))
     
-    bold_prediction_nifti = concat_imgs([unmask(bold, mask) for bold in bold_prediction])
+    bold_prediction_nifti = concat_imgs([unmask(bold, mask) for bold, mask in zip(bold_prediction, masks)])
     save(bold_prediction_nifti, os.path.join(output_dir, '{0}_desc-boldprediction.nii.gz'.format(filename_output)))
     
     # also save config file that was used to perform analysis in the output folder

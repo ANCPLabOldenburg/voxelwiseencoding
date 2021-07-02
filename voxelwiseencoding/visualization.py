@@ -34,12 +34,13 @@ def plot_scores(scores_path,save_path,glassbrain_save):
     fold0_argmax = np.unravel_index(np.argmax(data[...,0]), data.shape[:-1])
     title = 'Avg%.3f%sfold0 %.3f%stotal%.3f%s' % \
         (avg_max, str(avg_argmax), fold0_max, str(fold0_argmax), total_max, str(total_argmax))
-    display = plotting.plot_stat_map(mean_scores, threshold=0.05, title=title)
+    thresh = 0.0 #0.05
+    display = plotting.plot_stat_map(mean_scores, threshold=thresh, title=title)
 #    display.add_contours(temporal_lobe_mask,filled=False,colors='m')
 #    display.add_contours(heschl_mask,filled=False,colors='g')
     plt.gcf().savefig(save_path)
     plt.close()
-    display = plotting.plot_glass_brain(mean_scores, threshold=0.05, colorbar=True,
+    display = plotting.plot_glass_brain(mean_scores, threshold=thresh, colorbar=True,
                                         display_mode='lzry', plot_abs=False)
     display.add_contours(temporal_lobe_mask,filled=False,colors='m')
     display.add_contours(heschl_mask,filled=False,colors='g')
@@ -47,14 +48,14 @@ def plot_scores(scores_path,save_path,glassbrain_save):
     from matplotlib.patches import Rectangle
     cont1 = Rectangle((0,0),1,1,fc="magenta")
     cont2 = Rectangle((0,0),1,1,fc="green")
-    plt.legend([cont1,cont2],['Temporal lobe','Heschls gyrus'])
+    plt.legend([cont1,cont2],['Temporal lobe','Heschl gyrus'])
     plt.gcf().savefig(glassbrain_save)
     plt.close()
     
 def plot_avg_score(scores_path,mask_path,cond=None,offset=0):
     scores = load_img(scores_path)
     mask = joblib.load(mask_path)
-    scores = apply_mask(scores,mask)
+    scores = apply_mask(scores,mask[0])
 #    scores = np.square(scores) # R to R^2
     #print(scores.shape)
 #    avgs = np.mean(scores,axis=1) # mean across all voxels for each fold
@@ -144,7 +145,7 @@ def gather_files_and_plot_avg_scores():
                 acq_dir = os.path.join(sub_dir,f'acq-{acq}/')
                 bids_str = acq_dir + f'sub-{sub}_task-aomovie_acq-{acq}_desc-'
                 scores_path = bids_str + 'scores.nii.gz'
-                mask_path = bids_str + 'mask.pkl'
+                mask_path = bids_str + 'masks.pkl'
                 scores_paths.append(scores_path)
                 mask_paths.append(mask_path)
                 if not save_path:
@@ -177,22 +178,17 @@ def plot_highest_score_bold_predicted_vs_actual(path_predicted,path_actual,arg_h
     # bold.shape[3] == 1038
     # for some reason loading a 1.4GB file with get_fdata() takes forever and
     # uses up hundreds of GB ?!?
-    start = 50
-    shortest = 900 #min(bold.shape[3],bold_predicted.shape[3])
-    offset = -11 # 11 * 0.85s = 9.35s = 5.1s lag + 4.25s offset
+#    start = 50
+#    shortest = 900 #min(bold.shape[3],bold_predicted.shape[3])
+#    offset = -11 # 11 * 0.85s = 9.35s = 5.1s lag + 4.25s offset
+    start = 0
+    shortest = 1000
+    offset = 0
     x,y,z = arg_highscore
     bold_predicted_high = bold_predicted.dataobj[x,y,z,start+offset:start+offset+shortest]
     bold_predicted_high = zscore(bold_predicted_high)
     bold_high = bold.dataobj[x,y,z,start:start+shortest]
     bold_high = zscore(bold_high)
-#    offsets = np.arange(-50,50)
-#    res = []
-#    for offset in offsets:
-#        bold_predicted_high = bold_predicted.dataobj[x,y,z,start+offset:start+offset+shortest]
-#        bold_predicted_high = zscore(bold_predicted_high)
-#        res.append(product_moment_corr(bold_predicted_high,bold_high))
-#    res = np.asarray(res)
-#    plt.plot(res)
     plt.plot(bold_predicted_high,label='Predicted bold')
     plt.plot(bold_high,label='Actual bold')
     plt.legend()
@@ -203,7 +199,6 @@ def plot_highest_score_bold_predicted_vs_actual(path_predicted,path_actual,arg_h
     plt.savefig(save_path)
 #    plt.show()
     plt.close()
-#    print(np.argmax(res),np.max(res))
     #print(product_moment_corr(bold_predicted_high,bold_high))
 
 def plot_original_bold_spectrograms():
