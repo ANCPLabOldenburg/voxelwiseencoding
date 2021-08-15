@@ -57,7 +57,7 @@ def run_analysis(subject,acq,kwargs):
     scores_bold = concat_imgs([unmask(scores_fold, mask) for scores_fold, mask in zip(scores.T, masks)])
     save(scores_bold, os.path.join(output_dir, '{0}_desc-scores.nii.gz'.format(filename_output)))
     
-    bold_prediction_nifti = concat_imgs([unmask(bold, mask) for bold, mask in zip(bold_prediction, masks)])
+    bold_prediction_nifti = unmask(bold_prediction, masks[0])
     save(bold_prediction_nifti, os.path.join(output_dir, '{0}_desc-boldprediction.nii.gz'.format(filename_output)))
     
     # also save config file that was used to perform analysis in the output folder

@@ -45,20 +45,22 @@ def get_mel_spectrogram(filename, log=True, sr=44100, hop_length=512, **kwargs):
 if __name__ == "__main__":
     output_folder = '/data2/azubaidi/ForrestGumpHearingLoss/BIDS_ForrGump/derivatives/fmriprep/'
     output_sorted = True
-    use_noise = False
+#    use_noise = False
     
-    if use_noise:
-        stim_folder = '/data2/azubaidi/ForrestGumpHearingLoss/BIDS_ForrGump/'\
-                      +'sourcedata/stimuli/RecordedScannerNoise/'
-    else:
-        stim_folder = '/data2/azubaidi/ForrestGumpHearingLoss/BIDS_ForrGump/'\
-                      +'sourcedata/stimuli/RecordedStimuli/'
+    stim_folder = '/data2/azubaidi/ForrestGumpHearingLoss/BIDS_ForrGump/'\
+                  +'sourcedata/stimuli/PresentedStimuli/'
+#    if use_noise:
+#        stim_folder = '/data2/azubaidi/ForrestGumpHearingLoss/BIDS_ForrGump/'\
+#                      +'sourcedata/stimuli/RecordedScannerNoise/'
+#    else:
+#        stim_folder = '/data2/azubaidi/ForrestGumpHearingLoss/BIDS_ForrGump/'\
+#                      +'sourcedata/stimuli/RecordedStimuli/'
 #    stim_extension_old = 'recstimuli'
 #    stim_extension = 'stim'
 #    recording_extension = 'recording-rec_'
 #    recording_extension = ''
 #    subjects = ["01","02","03","04","05","06","07","08","09","10"]
-    subjects = ["09"]
+    subjects = ["10"]
 #    subjects = ["03","09"]
     sessions = ["01","02","03"]
     # Name of the folders where unincluded runs (01 and 08) go for each session
@@ -66,7 +68,8 @@ if __name__ == "__main__":
 #    sessions = ["01"]
     for subject in subjects:
         for session in sessions:
-            subses_stim_folder = os.path.join(stim_folder, f"sub-{subject}/ses-{session}/")
+#            subses_stim_folder = os.path.join(stim_folder, f"sub-{subject}/ses-{session}/")
+            subses_stim_folder = os.path.join(stim_folder, f"ses-{session}/")
             wav_files = glob.glob(subses_stim_folder + "*.wav")
             if output_sorted:
                 subses_output_folder_sorted = os.path.join(output_folder, f"sub-{subject}/ses-%s/func/")
@@ -104,10 +107,9 @@ if __name__ == "__main__":
                 
                 melspec, sr_spec, freqs = get_mel_spectrogram(wav_file, **config)
                 outfile_base = os.path.basename(wav_file).split('.')[0]
-                if use_noise:
-                    outfile_base += '_stim'
-#                outfile_base = outfile_base.replace(stim_extension_old,
-#                                                    recording_extension+stim_extension)
+#                if use_noise:
+#                    outfile_base += '_stim'
+                outfile_base = f"sub-{subject}_" + outfile_base.replace("presstimuli","recording-audio_stim")
                 if output_sorted:
                     if 'run-01' in wav_file or 'run-08' in wav_file:
                         condition = unincluded_runs[session]

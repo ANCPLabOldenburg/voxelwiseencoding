@@ -36,6 +36,9 @@ def plot_scores(scores_path,save_path,glassbrain_save):
         (avg_max, str(avg_argmax), fold0_max, str(fold0_argmax), total_max, str(total_argmax))
     thresh = 0.0 #0.05
     display = plotting.plot_stat_map(mean_scores, threshold=thresh, title=title)
+    display.add_markers([avg_argmax],marker_color='c')
+    display.add_markers([fold0_argmax],marker_color='y')
+    #display.add_markers([total_argmax],marker_color='m')
 #    display.add_contours(temporal_lobe_mask,filled=False,colors='m')
 #    display.add_contours(heschl_mask,filled=False,colors='g')
     plt.gcf().savefig(save_path)
@@ -44,6 +47,9 @@ def plot_scores(scores_path,save_path,glassbrain_save):
                                         display_mode='lzry', plot_abs=False)
     display.add_contours(temporal_lobe_mask,filled=False,colors='m')
     display.add_contours(heschl_mask,filled=False,colors='g')
+    display.add_markers([avg_argmax],marker_color='c')
+    display.add_markers([fold0_argmax],marker_color='y')
+    #display.add_markers([total_argmax],marker_color='m')
     # proxy artist trick to make legend
     from matplotlib.patches import Rectangle
     cont1 = Rectangle((0,0),1,1,fc="magenta")
@@ -181,13 +187,15 @@ def plot_highest_score_bold_predicted_vs_actual(path_predicted,path_actual,arg_h
 #    start = 50
 #    shortest = 900 #min(bold.shape[3],bold_predicted.shape[3])
 #    offset = -11 # 11 * 0.85s = 9.35s = 5.1s lag + 4.25s offset
-    start = 0
+#    start = 0
     shortest = 1000
-    offset = 0
+#    offset = 0
     x,y,z = arg_highscore
-    bold_predicted_high = bold_predicted.dataobj[x,y,z,start+offset:start+offset+shortest]
+    bold_predicted_high = bold_predicted.dataobj[x,y,z,:shortest]
+#    bold_predicted_high = bold_predicted.dataobj[x,y,z,start+offset:start+offset+shortest]
     bold_predicted_high = zscore(bold_predicted_high)
-    bold_high = bold.dataobj[x,y,z,start:start+shortest]
+    bold_high = bold.dataobj[x,y,z,:shortest]
+#    bold_high = bold.dataobj[x,y,z,start:start+shortest]
     bold_high = zscore(bold_high)
     plt.plot(bold_predicted_high,label='Predicted bold')
     plt.plot(bold_high,label='Actual bold')
@@ -311,22 +319,24 @@ def plot_original_bold_spectrograms():
             plt.close()
             
     
+#nmel = 1
+nmel = 48
 def get_max_coefs(ridges_path,mask_path,arg_highscore):
     import joblib
     from nilearn.masking import unmask
     ridges = joblib.load(ridges_path)
     mask = joblib.load(mask_path)
-    coefs = unmask(ridges.coef_.T,mask)
+    coefs = unmask(ridges.coef_.T,mask[0])
     #print(ridges.coef_.shape)
     #print(coefs.shape)
     max_coefs = coefs._dataobj[arg_highscore]
-    nmel = 48
+#    nmel = 48
     return max_coefs.reshape((-1,nmel))
     
 def plot_max_coefs(max_coefs,save_path):
     print('Plotting',save_path)
     import matplotlib.pyplot as plt
-    nmel = 48
+#    nmel = 48
     nmel_stride = 4
     mel_frequencies = [100, 162, 224, 286, 348, 410, 472, 534, 596, 658, 721, 
                        783, 845, 907, 969, 1032, 1100, 1173, 1251, 1333, 1421,
@@ -334,9 +344,13 @@ def plot_max_coefs(max_coefs,save_path):
                        2696, 2874, 3064, 3266, 3482, 3712, 3957, 4219, 4497, 
                        4795, 5112, 5449, 5809, 6193, 6603, 7039, 7504, 8000]
     n_lag_bins = max_coefs.shape[0]
-    lagging_offset = 4.25
-    x_ticks = (np.arange(-n_lag_bins, 0) * 0.025) - lagging_offset
+#    lagging_offset = 4.25
+#    lagging_offset = 0.0
+    lagging_offset = 4.0
+    x_ticks = (np.arange(n_lag_bins) * 0.025) + lagging_offset
     x_stride = 20
+#    x_stride = 80
+#    plt.plot(max_coefs)
     plt.imshow(max_coefs.T,aspect='auto',origin='lower')
     plt.gca().set_yticks(np.arange(0,nmel,nmel_stride))
     plt.gca().set_yticklabels(mel_frequencies[::nmel_stride])
@@ -346,18 +360,20 @@ def plot_max_coefs(max_coefs,save_path):
     cbar.set_label('Ridge coefficient', rotation=270)
     plt.xlabel('Time lag (s)')
     plt.ylabel('Mel frequency (Hz)')
+#    plt.ylabel('Ridge coefficient')
     plt.savefig(save_path)
     plt.close()
 
 def plot_max_coef_diff(max_coefs,max_coefs_CS,save_path):
-    from scipy.stats import zscore
-    diff = zscore(max_coefs,axis=1)-zscore(max_coefs_CS,axis=1)
+#    from scipy.stats import zscore
+#    diff = zscore(max_coefs,axis=1)-zscore(max_coefs_CS,axis=1)
+    diff = max_coefs - max_coefs_CS
     plot_max_coefs(diff,save_path)
 
 def plot_mel_spectrogram(spec_path,save_path):
     print('Plotting',save_path)
     import matplotlib.pyplot as plt
-    nmel = 48
+#    nmel = 48
     nmel_stride = 4
     mel_frequencies = [100, 162, 224, 286, 348, 410, 472, 534, 596, 658, 721, 
                        783, 845, 907, 969, 1032, 1100, 1173, 1251, 1333, 1421,
@@ -385,12 +401,12 @@ def plot_mel_spectrogram(spec_path,save_path):
 #    plt.show()
     plt.close()
 
-
 def plot_lagged_stimulus_spectrograms(spec_path,save_path):
     import matplotlib.pyplot as plt
     import joblib
     print('Plotting',save_path)
     spectrogram = joblib.load(spec_path)
+#    x = joblib.load(spec_path)
     #print(spectrogram.shape)
     # x: ~30000-40000 time bins from original mel spectrogram with windowlength 0.025s
     # and overlap 0 are resampled to ~1000 fMRI volumes
@@ -406,23 +422,54 @@ def plot_lagged_stimulus_spectrograms(spec_path,save_path):
     
     # Select every lag bin that moves the signal one bin on the x-axis, so we 
     # can actually see the lagged stimulus move:
-    n_lags = 6
+    n_lags = 7
     offset = int(spectrogram.shape[1]/n_lags)
-    nmel = 48
+#    nmel = 48
     fMRI_volumes_to_plot = 50
     x = np.hstack([spectrogram[:fMRI_volumes_to_plot,(i*offset):((i*offset)+nmel)] for i in range(n_lags)])
     #print(x.shape)
+#    x = x[:50]
     TR = 0.85
     x_ticks = (np.arange(0,x.shape[0])*TR).astype(int)
     x_stride = round(10/TR)
+#    lagging_offset = 4.25
+#    lagging_offset = 0.0
+    lagging_offset = 4.0
+    n_lag_bins = x.shape[1]
+#    y_ticks = (np.arange(-n_lag_bins, 0) * 0.025) - lagging_offset
+    y_ticks = (np.arange(n_lag_bins) * 0.025) + lagging_offset
+    y_stride = 20
+#    y_stride = 80
     plt.imshow(x.T,aspect='auto',origin='lower')
     plt.gca().set_xticks(np.arange(0,x.shape[0],x_stride))
     plt.gca().set_xticklabels(x_ticks[::x_stride])
+    plt.gca().set_yticks(np.arange(0,n_lag_bins,y_stride))
+    plt.gca().set_yticklabels(["%.1f"% tick for tick in y_ticks[0::y_stride]])
     #cbar = plt.colorbar()
     #cbar.set_label('Ridge coefficient', rotation=270)
     plt.xlabel('Time (s)')
 #    plt.ylabel('Mel frequencies')
     plt.ylabel('Lagged features (mel frequencies * every 34th lag bin)')
+#    plt.ylabel('Lag (s)')
+    plt.savefig(save_path)
+#    plt.show()
+    plt.close()
+    
+def plot_lagged_stimulus_one_column(spec_path,save_path):
+    import matplotlib.pyplot as plt
+    import joblib
+    from scipy.signal import welch
+    print('Plotting',save_path)
+    X = joblib.load(spec_path)
+#    print(X.shape)
+#    plt.plot(X[50])
+    f, Pxx = welch(X[20], fs=40)
+    plt.semilogy(f,Pxx)
+    plt.xlabel('Frequency (Hz)')
+    plt.ylabel('PSD (V²/Hz)')
+    max_freq = f[np.argmax(Pxx)]
+    plt.axvline(max_freq,color='r')
+    plt.title(f'Volume 20, max freq: {max_freq}')
     plt.savefig(save_path)
 #    plt.show()
     plt.close()
@@ -440,22 +487,30 @@ if __name__=='__main__':
 #                   OUTPUT_BASE+'heschl/offset0/allstim/',
 #                   OUTPUT_BASE+'heschl/offset0/alwaysCS/',
 #                   OUTPUT_BASE+'heschl/offset0/removeconfounds/',
-                   OUTPUT_BASE+'heschl/offset4.25_bandpass0.01-0.1_removeconfounds/nosmoothing/',
-                   OUTPUT_BASE+'heschl/offset4.25_bandpass0.01-0.1_removeconfounds/smoothing/'
+#                   OUTPUT_BASE+'heschl/offset4.25_bandpass0.01-0.1_removeconfounds/nosmoothing/',
+#                   OUTPUT_BASE+'heschl/offset4.25_bandpass0.01-0.1_removeconfounds/smoothing/'
 #                   OUTPUT_BASE+'temporal_lobe_mask/offset4.25_bandpass0.01-0.1_removeconfounds/nosmoothing/',
 #                   OUTPUT_BASE+'temporal_lobe_mask/offset4.25_bandpass0.01-0.1_removeconfounds/smoothing/'
+#                   OUTPUT_BASE+'temporal_lobe_mask/lagging-4to-9.95_envelope_MNI/',
+#                   OUTPUT_BASE+'temporal_lobe_mask/lagging-4to-9.95_envelope_T1w/',
+                   OUTPUT_BASE+'temporal_lobe_mask/lagging0to-15.3_envelope_MNI/',
+#                   OUTPUT_BASE+'temporal_lobe_mask/lagging0to-15.3_envelope_T1w/',
+#                   OUTPUT_BASE+'temporal_lobe_mask/lagging-4to-9.95_melspec_MNI/',
+#                   OUTPUT_BASE+'temporal_lobe_mask/lagging-4to-9.95_melspec_T1w/'
                    ]
-    subjects = ['03','09']
+    subjects = ['10']
     conditions = ['CS','N4','S2']
-#    subjects = ['03']
-#    conditions = ['CS']
     runs = ["02","03","04","05","06","07"]
+#    subjects = ['10']
+#    conditions = ['CS']
+#    runs = ["02"]
     do_scores = False
-    do_bold_predicted_vs_actual = True
+    do_bold_predicted_vs_actual = False
     do_max_coefs = False
     do_avg_scores_per_fold = False
     do_lagged_stim = False
     do_orig_stim = False
+    do_lagged_stim_one_column = True
     for output_dir in output_dirs:
         for sub in subjects:
             sub_dir = os.path.join(output_dir,f'sub-{sub}/')
@@ -487,7 +542,7 @@ if __name__=='__main__':
                                                                 arg_highscore,bold_save)
                 if do_max_coefs:
                     ridges_path = bids_str + 'ridgesfold0.pkl'
-                    mask_path = bids_str + 'mask.pkl'
+                    mask_path = bids_str + 'masks.pkl'
                     max_coefs_save = bids_str + 'maxcoefs.png'
                     max_coefs_diff_save = bids_str + 'maxcoefsdiff.png'
                     max_coefs = get_max_coefs(ridges_path,mask_path,arg_highscore)
@@ -499,7 +554,7 @@ if __name__=='__main__':
                         max_coefs = get_max_coefs(ridges_path,mask_path,arg_highscore_CS)
                         plot_max_coef_diff(max_coefs,max_coefs_CS,max_coefs_diff_save)
                 if do_avg_scores_per_fold:
-                    mask_path = bids_str + 'mask.pkl'
+                    mask_path = bids_str + 'masks.pkl'
                     r2_save = bids_str + 'scoresavg.png'
 #                    hist_save = bids_str + 'r2hist.png'
                     plot_avg_score_per_fold(scores_path,mask_path,r2_save)
@@ -507,18 +562,17 @@ if __name__=='__main__':
                         allcond_save = bids_str + 'scoresallcond.png'
                         N4_str = os.path.join(sub_dir,f'acq-N4/sub-{sub}_task-aomovie_acq-N4_desc-')
                         N4scores = N4_str + 'scores.nii.gz'
-                        N4mask = N4_str + 'mask.pkl'
+                        N4mask = N4_str + 'masks.pkl'
                         S2_str = os.path.join(sub_dir,f'acq-S2/sub-{sub}_task-aomovie_acq-S2_desc-')
                         S2scores = N4_str + 'scores.nii.gz'
-                        S2mask = N4_str + 'mask.pkl'
+                        S2mask = N4_str + 'masks.pkl'
                         if os.path.exists(N4scores) and os.path.exists(S2scores):
                             plot_avg_score_all_conditions([scores_path,N4scores,S2scores],
                                                           [mask_path,N4mask,S2mask],
                                                           allcond_save)
-                if do_lagged_stim or do_orig_stim:
-                    lagged_stim_dir = os.path.join(acq_dir,'lagged_stim/')
-                    if not os.path.exists(lagged_stim_dir):
-                        os.mkdirs(lagged_stim_dir)
+                lagged_stim_dir = os.path.join(acq_dir,'lagged_stim/')
+                if not os.path.exists(lagged_stim_dir):
+                    os.mkdirs(lagged_stim_dir)
                 if do_orig_stim:
                     stim_path = '/data2/azubaidi/ForrestGumpHearingLoss/BIDS_ForrGump/'\
                         +f'derivatives/fmriprep/sub-{sub}/ses-{acq}/func/'
@@ -540,6 +594,15 @@ if __name__=='__main__':
 #                    if not os.path.exists(lagged_stim_all_path):
 #                        continue
 #                    plot_lagged_stimulus_spectrograms(lagged_stim_all_path,
-#                                                      lagged_stim_all_save)                     
+#                                                      lagged_stim_all_save)       
+                if do_lagged_stim_one_column:
+                    bids_str_lagged = lagged_stim_dir + f'sub-{sub}_task-aomovie_acq-{acq}_desc-'
+                    lagged_stim_path = bids_str_lagged + 'laggedstim{0}.pkl'
+                    lagged_stim_save = bids_str_lagged + 'laggedstimonecol{0}.png'
+                    for i in range(len(runs)):
+                        if not os.path.exists(lagged_stim_path.format(i)):
+                            continue
+                        plot_lagged_stimulus_one_column(lagged_stim_path.format(i),
+                                                          lagged_stim_save.format(i))              
     toc = time.time()
     print('\nElapsed time: {:.2f} s'.format(toc - tic))

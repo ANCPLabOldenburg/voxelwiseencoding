@@ -437,7 +437,10 @@ def run_model_for_subject(bold_files, bold_json, stim_tsv, stim_json,**kwargs):
     for tsv_fl, json_fl in zip(stim_tsv, stim_json):
         with open(json_fl, 'r') as fl:
             stim_meta.append(json.load(fl))
-        stim_data.append(np.loadtxt(tsv_fl, delimiter='\t'))
+        stim = np.loadtxt(tsv_fl, delimiter='\t')
+        if stim.ndim == 1:
+            stim = stim[:,np.newaxis]
+        stim_data.append(stim)
 
     stim_start_times = [st_meta['StartTime'] for st_meta in stim_meta]
     stim_TR = 1. / stim_meta[0]['SamplingFrequency']
@@ -449,12 +452,17 @@ def run_model_for_subject(bold_files, bold_json, stim_tsv, stim_json,**kwargs):
         stim_TR, stim_start_times=stim_start_times, 
         save_lagged_stim_path=args.get('save_lagged_stim_path'), **lagging_params)
     
+    args['run_start_indices'] = run_start_indices
+    
+    preprocessed_bold = np.vstack(preprocessed_bold)
+    
     if args.get('save_preprocessed_bold'):
-        bold_preprocessed_nifti = concat_imgs([unmask(bold, resampled_mask) 
-                                               for bold,resampled_mask in zip(preprocessed_bold,masks)])
+        bold_preprocessed_nifti = unmask(preprocessed_bold, masks[0])
+#        bold_preprocessed_nifti = concat_imgs([unmask(bold, resampled_mask) 
+#                                               for bold,resampled_mask in zip(preprocessed_bold,masks)])
         save(bold_preprocessed_nifti, args['save_preprocessed_bold_path'])
         
-    preprocessed_bold = np.vstack(preprocessed_bold)
+#    preprocessed_bold = np.vstack(preprocessed_bold)
     
     # compute ridge and scores for folds
     scores, bold_prediction, train_indices, test_indices = \
