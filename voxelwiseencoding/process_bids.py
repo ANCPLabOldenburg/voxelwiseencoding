@@ -3,27 +3,27 @@
 __all__ = ['create_stim_filename_from_args',
            'create_output_filename_from_args',
            'create_metadata_filename_from_args',
-           'create_bold_glob_from_args', 
-           'run', 
+           'create_bold_glob_from_args',
+           'run',
            'get_func_bold_directory',
-           'run_model_for_subject', 
-           'get_bids_filenames_for_econding']
+           'run_model_for_subject',
+           'get_bids_filenames_for_encoding']
 
 # Cell
-#export
-#import argparse
+# export
+# import argparse
 import os
 import subprocess
-#import nibabel
+# import nibabel
 import numpy
 from glob import glob
 from preprocessing import preprocess_bold_fmri, make_X_Y
 from encoding import get_model_plus_scores
-#from sklearn.linear_model import RidgeCV
+# from sklearn.linear_model import RidgeCV
 import json
-#import joblib
+# import joblib
 import numpy as np
-from nilearn.image import load_img#, new_img_like
+from nilearn.image import load_img  # , new_img_like
 from nilearn.image import concat_imgs
 from nilearn.masking import compute_epi_mask
 from nilearn.masking import unmask
@@ -31,7 +31,7 @@ from nibabel import save
 
 
 # Cell
-#hide
+# hide
 
 def create_stim_filename_from_args(subject_label, **kwargs):
     '''Creates an expression corresponding to the stimulus files. It does not differentiate between json and tsv(.gz) files yet.'''
@@ -39,27 +39,29 @@ def create_stim_filename_from_args(subject_label, **kwargs):
                  'ses-{}'.format(kwargs.get('ses')) if kwargs.get('ses') else None,
                  'task-{}'.format(kwargs.get('task')) if kwargs.get('task') else None,
                  'desc-{}'.format(kwargs.get('desc')) if kwargs.get('desc') else None,
-                 '*',\
+                 '*', \
                  'recording-{}'.format(kwargs.get('recording')) if kwargs.get('recording') else None,
                  'stim']
     stim_expr = '_'.join([term for term in stim_expr if term])
     # TODO: change hacky way to glob
     return stim_expr.replace('_*_', '_*')
 
-def create_output_filename_from_args(sub=None,ses=None,task=None,acq=None,
-                                     run=None,desc=None,recording=None):
+
+def create_output_filename_from_args(sub=None, ses=None, task=None, acq=None,
+                                     run=None, desc=None, recording=None):
     '''Creates filename for the model output'''
     output_expr = ['sub-{}'.format(sub) if sub else None,
-                 'ses-{}'.format(ses) if ses else None,
-                 'task-{}'.format(task) if task else None,
-                 'acq-{}'.format(acq) if acq else None,
-                 'run-{}'.format(run) if run else None,
-                 'desc-{}'.format(desc) if desc else None,
-                 'recording-{}'.format(recording) if recording else None]
+                   'ses-{}'.format(ses) if ses else None,
+                   'task-{}'.format(task) if task else None,
+                   'acq-{}'.format(acq) if acq else None,
+                   'run-{}'.format(run) if run else None,
+                   'desc-{}'.format(desc) if desc else None,
+                   'recording-{}'.format(recording) if recording else None]
     output_expr = '_'.join([term for term in output_expr if term])
     return output_expr
 
-#TODO: make globbable for different runs
+
+# TODO: make globbable for different runs
 def create_metadata_filename_from_args(subject_label, **kwargs):
     '''Creates filename for task metadata'''
     metadata_expr = ['sub-{}'.format(subject_label),
@@ -109,10 +111,11 @@ def get_func_bold_directory(subject_label, bids_dir, **kwargs):
         bold_folder_name = os.path.join(*[term for term in bold_folder[:-1] if term])
     return bold_folder_name
 
+
 # Cell
 
 def get_bids_filenames_for_subject(subject_label, bids_dir, ses=None, task=None, desc=None,
-                         recording=None, **kwargs):
+                                   recording=None, **kwargs):
     '''Localizes BOLD files and stimulus files for subject_label in BIDS folder structure
 
     Parameters
@@ -159,11 +162,11 @@ def get_bids_filenames_for_subject(subject_label, bids_dir, ses=None, task=None,
             # try to get tsvs in root directory without subject specifier
             root_glob = '_'.join(stim_glob.split('_')[1:])
             stim_tsv = glob(os.path.join(bids_dir,
-                                            '.'.join([root_glob, 'tsv.gz'])))
+                                         '.'.join([root_glob, 'tsv.gz'])))
             if not stim_tsv:
                 # and check again in root for tsv
                 stim_tsv = glob(os.path.join(bids_dir,
-                                                '.'.join([root_glob, 'tsv'])))
+                                             '.'.join([root_glob, 'tsv'])))
                 if not stim_tsv:
                     raise ValueError('No stimulus files found! [Mention naming scheme and location here]')
     stim_tsv = sorted(stim_tsv)
@@ -174,18 +177,19 @@ def get_bids_filenames_for_subject(subject_label, bids_dir, ses=None, task=None,
 
     if not (len(stim_tsv) == len(stim_json) and len(stim_json) == len(bold_files)):
         raise ValueError('Number of stimulus tsv, stimulus json, and BOLD files differ.'
-                ' Stimulus json: {} \n stimulus tsv: {} \n BOLD: {}'.format(stim_json, stim_tsv, bold_files))
+                         ' Stimulus json: {} \n stimulus tsv: {} \n BOLD: {}'.format(stim_json, stim_tsv, bold_files))
 
     return bold_files, task_meta, stim_tsv, stim_json
 
+
 def run(command, env={}):
     '''Runs the given command in local environment'''
-    
+
     # ancpJR requires command line installation of bids validator
     # if not kwargs['skip_bids_validator']:
     #     run('bids-validator %s'%kwargs['bids_dir'])
-    #could be done in python 
-    
+    # could be done in python
+
     merged_env = os.environ
     merged_env.update(env)
     process = subprocess.Popen(command, stdout=subprocess.PIPE,
@@ -200,11 +204,12 @@ def run(command, env={}):
     if process.returncode != 0:
         raise Exception("Non zero return code: {}".format(process.returncode))
 
+
 # down to here old helper functions from Moritz
 
 # ancpJR
 
-def get_bids_filenames_for_econding(**kwargs):
+def get_bids_filenames_for_encoding(**kwargs):
     '''Returns file names for encoding modelling in BIDS directory structure.
     
     The method takes as input BIDS compliant label value/pairs to select the 
@@ -216,7 +221,7 @@ def get_bids_filenames_for_econding(**kwargs):
     label/value pairs. Thus they live in same directory. 
     
     Args:
-        **args : A dictionary holding BIDS the entries listed below
+        **kwargs : A dictionary holding BIDS the entries listed below
                  arg['bids_dir']='/home/myhome/DATA/NameOfStudy/' The path to the 
                  BIDS directory. The BIDS directory is where the file  
                  dataset_description.json, the (raw) subject and the derivatives
@@ -257,54 +262,62 @@ def get_bids_filenames_for_econding(**kwargs):
         directory and have the same descriptive names. This is only a subset of
         BIDS definitions    
     '''
-    #from bids import BIDSLayout
-    import bids # the pybids functions
-    #Avoid FutureWarning about dots in file extensions  
-    bids.config.set_option('extension_initial_dot', True)
+    # from bids import BIDSLayout
+#    import bids # the pybids functions
+    import ancpbids as bids
+    # Avoid FutureWarning about dots in file extensions
+#    bids.config.set_option('extension_initial_dot', True)
 
     # get all files in bids_dir
-    layout=bids.BIDSLayout(kwargs['bids_dir'], derivatives=kwargs['derivatives'],
-                           database_path='./temp/')
-    
+#    layout = bids.BIDSLayout(kwargs['bids_dir'], derivatives=kwargs['derivatives'],
+#                             database_path='./temp/')
+    layout = bids.BIDSLayout(kwargs['bids_dir']+'/derivatives/fmriprep')
+
     # select the nifti bold file names in the scope 
-    bold_files=layout.get(subject=kwargs['sub'],
-                          session=kwargs['ses'],
-                          task=kwargs['task'],run=kwargs['run'],
-                          scope=kwargs['scope'],suffix=kwargs['bold_suffix'],
-                          extension=kwargs['bold_extension'],
-                          acquisition=kwargs['acq'],
-                          space=kwargs['space'],
-                          desc=kwargs['desc'],
-                          return_type='filename')
-    print('Found', len(bold_files),'bold files.')
+    bold_files = layout.get(subject=kwargs['sub'],
+                            session=kwargs['ses'],
+                            task=kwargs['task'], 
+                            run=kwargs['run'],
+                            #scope=kwargs['scope'], 
+                            suffix=kwargs['bold_suffix'],
+                            extension=kwargs['bold_extension'],
+                            acquisition=kwargs['acq'],
+                            space=kwargs['space'],
+                            desc=kwargs['desc'],
+                            return_type='filename')
+    print('Found', len(bold_files), 'bold files.')
     for f in bold_files: print(f)
-    
-    #get the _bold.json names matching the same search pattern               
-    bold_jsons=layout.get(subject=kwargs['sub'],
-                          session=kwargs['ses'],
-                          task=kwargs['task'],run=kwargs['run'],
-                          scope=kwargs['scope'],suffix=kwargs['bold_suffix'],
-                          extension=kwargs['json_extension'],
-                          acquisition=kwargs['acq'],
-                          space=kwargs['space'],
-                          desc=kwargs.get('descboldjson'),
-                          return_type='filename')
+
+    # get the _bold.json names matching the same search pattern
+    bold_jsons = layout.get(subject=kwargs['sub'],
+                            session=kwargs['ses'],
+                            task=kwargs['task'], 
+                            run=kwargs['run'],
+                            #scope=kwargs['scope'], 
+                            suffix=kwargs['bold_suffix'],
+                            extension=kwargs['json_extension'],
+                            acquisition=kwargs['acq'],
+                            space=kwargs['space'],
+                            desc=kwargs.get('descboldjson'),
+                            return_type='filename')
     print('Found', len(bold_jsons), 'corresponding json files.')
     for f in bold_jsons: print(f)
-    
+
     if kwargs.get('remove_confounds'):
         # select confound tsv file names in the scope 
-        confound_tsvs=layout.get(subject=kwargs['sub'],
-                              session=kwargs['ses'],
-                              task=kwargs['task'],run=kwargs['run'],
-                              scope=kwargs['scope'],suffix=kwargs['confounds_suffix'],
-                              extension=kwargs['confounds_extension'],
-                              acquisition=kwargs['acq'],
-                              desc=kwargs['confounds_desc'],
-                              return_type='filename')
-        print('Found', len(confound_tsvs),'confounds tsv files.')
+        confound_tsvs = layout.get(subject=kwargs['sub'],
+                                   session=kwargs['ses'],
+                                   task=kwargs['task'], 
+                                   run=kwargs['run'],
+                                   #scope=kwargs['scope'], 
+                                   suffix=kwargs['confounds_suffix'],
+                                   extension=kwargs['confounds_extension'],
+                                   acquisition=kwargs['acq'],
+                                   desc=kwargs['confounds_desc'],
+                                   return_type='filename')
+        print('Found', len(confound_tsvs), 'confounds tsv files.')
         for f in confound_tsvs: print(f)
-    
+
     if kwargs.get('stim_always_CS'):
         acq = 'CS'
         session = 'CS'
@@ -313,45 +326,46 @@ def get_bids_filenames_for_econding(**kwargs):
         session = kwargs['ses']
     # select the stimulus tsv file names in the scope. 
     # TODO so far we assume they live in the same  directory a the nifties 
-    #and have the same descriptive names
-    stim_tsv=layout.get(subject=kwargs['sub'],session=session,
-                        task=kwargs['task'],run=kwargs['run'],
-                        scope=kwargs['scope'],
-                        suffix=kwargs['stim_suffix'],
-                        extension=kwargs['stim_extension'],
-                        recording=kwargs['rec'],
-                        acquisition=acq,
-                        return_type='filename')
-    print('Found',  len(stim_tsv), 'stim files')
+    # and have the same descriptive names
+    stim_tsv = layout.get(subject=kwargs['sub'], 
+                          session=session,
+                          task=kwargs['task'], 
+                          run=kwargs['run'],
+                          #scope=kwargs['scope'],
+                          suffix=kwargs['stim_suffix'],
+                          extension=kwargs['stim_extension'],
+                          recording=kwargs['rec'],
+                          acquisition=acq,
+                          return_type='filename')
+    print('Found', len(stim_tsv), 'stim files')
     for f in stim_tsv: print(f)
-    
+
     # get the json filenames corresponding to the stim tsv filenames
-    stim_json=layout.get(subject=kwargs['sub'],
-                         session=session,
-                         task=kwargs['task'],run=kwargs['run'],
-                         scope=kwargs['scope'],
-                         suffix=kwargs['stim_suffix'],
-                         extension=kwargs['json_extension'],
-                         recording=kwargs['rec'],
-                         acquisition=acq,
-                         return_type='filename')
-    print('Found',  len(stim_json), 'stim.json files')
+    stim_json = layout.get(subject=kwargs['sub'],
+                           session=session,
+                           task=kwargs['task'], 
+                           run=kwargs['run'],
+                           #scope=kwargs['scope'],
+                           suffix=kwargs['stim_suffix'],
+                           extension=kwargs['json_extension'],
+                           recording=kwargs['rec'],
+                           acquisition=acq,
+                           return_type='filename')
+    print('Found', len(stim_json), 'stim.json files')
     for f in stim_json: print(f)
-    
-    #return the lists of filenames
+
+    # return the lists of filenames
     if kwargs.get('remove_confounds'):
         return bold_files, bold_jsons, stim_tsv, stim_json, confound_tsvs
     else:
         return bold_files, bold_jsons, stim_tsv, stim_json
 
 
-
-
-# def run_model_for_subject(subject_label, bids_dir, bold_files, bold_json, 
+# def run_model_for_subject(subject_label, bids_dir, bold_files, bold_json,
 #                           stim_tsv, stim_json, mask=None, bold_prep_kwargs=None,
 #                           preprocess_kwargs=None, estimator=None, encoding_kwargs=None,
 #                           **kwargs):
-def run_model_for_subject(bold_files, bold_json, stim_tsv, stim_json,**kwargs):
+def run_model_for_subject(bold_files, bold_json, stim_tsv, stim_json, **kwargs):
     '''Runs voxel-wise encoding model for a single subject and returns Ridges and scores
 
     Parameters
@@ -393,16 +407,16 @@ def run_model_for_subject(bold_files, bold_json, stim_tsv, stim_json,**kwargs):
 
     '''
     # Copy kwargs just for safety
-    args=kwargs.copy()
-    
+    args = kwargs.copy()
+
     bold_prep_params = args['bold_prep_params']
     lagging_params = args['lagging_params']
     encoding_params = args['encoding_params']
-    
+
     # metadata from the first BOLD file only. May not problematic as long as
     # only one RT is used in all nifties
-    bold_meta={}
-    with open(bold_json[0],'r') as fp:
+    bold_meta = {}
+    with open(bold_json[0], 'r') as fp:
         bold_meta = json.load(fp)
 
     if args['mask'] == 'epi':
@@ -410,13 +424,13 @@ def run_model_for_subject(bold_files, bold_json, stim_tsv, stim_json,**kwargs):
         mask = compute_epi_mask(bold_files[0])
     else:
         mask = load_img(args['mask'])
-    
+
     # do BOLD preprocessing      
     preprocessed_bold = []
     masks = []
     if args.get('remove_confounds'):
         import pandas as pd
-        for bold_file, confound_tsv in zip(bold_files,args['confound_tsvs']):
+        for bold_file, confound_tsv in zip(bold_files, args['confound_tsvs']):
             confounds = pd.read_csv(confound_tsv, sep='\t')
             confounds = confounds[args['confounds_to_exclude']]
             prep_bold, resampled_mask = preprocess_bold_fmri(bold_file, mask=mask,
@@ -439,31 +453,31 @@ def run_model_for_subject(bold_files, bold_json, stim_tsv, stim_json,**kwargs):
             stim_meta.append(json.load(fl))
         stim = np.loadtxt(tsv_fl, delimiter='\t')
         if stim.ndim == 1:
-            stim = stim[:,np.newaxis]
+            stim = stim[:, np.newaxis]
         stim_data.append(stim)
 
     stim_start_times = [st_meta['StartTime'] for st_meta in stim_meta]
     stim_TR = 1. / stim_meta[0]['SamplingFrequency']
-    
+
     # temporally align stimulus and fmri data
     # ancpJR: The image o stim_data lagged does look a bit odd
     stim_data_lagged, preprocessed_bold, run_start_indices = make_X_Y(
         stim_data, preprocessed_bold, bold_meta['RepetitionTime'],
-        stim_TR, stim_start_times=stim_start_times, 
+        stim_TR, stim_start_times=stim_start_times,
         save_lagged_stim_path=args.get('save_lagged_stim_path'), **lagging_params)
-    
+
     args['run_start_indices'] = run_start_indices
-    
+
     preprocessed_bold = np.vstack(preprocessed_bold)
-    
+
     if args.get('save_preprocessed_bold'):
         bold_preprocessed_nifti = unmask(preprocessed_bold, masks[0])
-#        bold_preprocessed_nifti = concat_imgs([unmask(bold, resampled_mask) 
-#                                               for bold,resampled_mask in zip(preprocessed_bold,masks)])
+        #        bold_preprocessed_nifti = concat_imgs([unmask(bold, resampled_mask)
+        #                                               for bold,resampled_mask in zip(preprocessed_bold,masks)])
         save(bold_preprocessed_nifti, args['save_preprocessed_bold_path'])
-        
-#    preprocessed_bold = np.vstack(preprocessed_bold)
-    
+
+    #    preprocessed_bold = np.vstack(preprocessed_bold)
+
     # compute ridge and scores for folds
     scores, bold_prediction, train_indices, test_indices = \
         get_model_plus_scores(stim_data_lagged, preprocessed_bold,
@@ -471,5 +485,5 @@ def run_model_for_subject(bold_files, bold_json, stim_tsv, stim_json,**kwargs):
                               run_start_indices=run_start_indices,
                               model_dump_path=args.get('model_dump_path'),
                               **encoding_params)
-        
+
     return scores, masks, bold_prediction, train_indices, test_indices

@@ -35,7 +35,7 @@ Created on Fri Mar 26 17:48:37 2021
 @author: rieger
 """
 import json
-from voxelwiseencoding.process_bids import get_bids_filenames_for_econding, run_voxelwise_encoding
+from voxelwiseencoding.process_bids import get_bids_filenames_for_encoding, run_voxelwise_encoding
 
 # Set values by of user variables standard to 'None'  
 dict_key_list=['bids_dir','output_dir','sub','ses','task','run','scope','bold_suffix','bold_extension','stim_suffix','stim_extension','json_extension','mask','bold_prep_params_filename','encoding_params_filename','lagging_params_filename','skip_bids_validator','encoding_score_suffix']
@@ -73,7 +73,7 @@ lagging_params = {'lag_time': 6}
 
 # get the files from the bids directory
 bold_files, bold_jsons, stim_tsvs, stim_jsons =\
-     get_bids_filenames_for_econding(**arg)
+     get_bids_filenames_for_encoding(**arg)
 
 #write bold prep, ridge and lagging params to files 
 with open(arg['bold_prep_params_filename'], 'w+') as fl:

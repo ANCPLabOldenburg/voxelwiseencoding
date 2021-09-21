@@ -3,8 +3,8 @@
 __all__ = ['preprocess_bold_fmri', 'get_remove_idx', 'make_lagged_stimulus', 'generate_lagged_stimulus', 'make_X_Y']
 
 # Cell
-#export
-#import os
+# export
+# import os
 import warnings
 import numpy as np
 import joblib
@@ -13,10 +13,11 @@ from nibabel import load, Nifti1Image
 from nilearn.signal import clean
 from nilearn.image import resample_img
 
+
 # Cell
 def preprocess_bold_fmri(bold, mask=None, detrend=True, standardize='zscore',
                          confounds=None, **kwargs):
-    '''Preprocesses BOLD data and returns ndarray of preprocessed data
+    """Preprocesses BOLD data and returns ndarray of preprocessed data
 
     Parameters
 
@@ -26,16 +27,16 @@ def preprocess_bold_fmri(bold, mask=None, detrend=True, standardize='zscore',
         standardize : {‘zscore’, ‘psc’, False}, default is ‘zscore’
         confounds: Confounds timeseries. Shape must be (instant number, confound number),
                    or just (instant number,). The number of time instants in
-                   bold signals and confounds must be identical 
+                   bold signals and confounds must be identical
                    (i.e. bold.shape[0] == confounds.shape[0]).
         kwargs : further arguments for nilearn's clean function
 
     Returns
         ndarray of the preprocessed bold data in (samples, voxels)
-    '''
+    """
     if mask:
         data_bold = load(bold)
-        mask = resample_img(mask, data_bold._affine, data_bold.shape[:-1], 
+        mask = resample_img(mask, data_bold._affine, data_bold.shape[:-1],
                             interpolation='nearest')
         data = apply_mask(bold, mask)
     else:
@@ -44,8 +45,9 @@ def preprocess_bold_fmri(bold, mask=None, detrend=True, standardize='zscore',
         else:
             data = bold.get_data()
         data = np.reshape(data, (-1, data.shape[-1])).T
-    return clean(data, detrend=detrend, standardize=standardize, 
+    return clean(data, detrend=detrend, standardize=standardize,
                  confounds=confounds, **kwargs), mask
+
 
 # Cell
 def get_remove_idx(lagged_stimulus, remove_nan=True):
@@ -60,6 +62,7 @@ def get_remove_idx(lagged_stimulus, remove_nan=True):
         return np.where(np.isnan(lagged_stimulus).mean(axis=1) > remove_nan)[0]
     else:
         raise ValueError('remove_nan needs to be either True, False, or a float between 0 and 1.')
+
 
 # Cell
 
@@ -82,9 +85,10 @@ def make_lagged_stimulus(stimulus, n_lags, fill_value=np.nan):
     time point zero to time point n_lags.   
     '''
     lagged_reps = [np.vstack([np.full((lag_i, stimulus.shape[1]), fill_value),
-                              stimulus[:-lag_i]]) 
+                              stimulus[:-lag_i]])
                    for lag_i in range(1, n_lags)]
-    return np.hstack([stimulus]+lagged_reps)
+    return np.hstack([stimulus] + lagged_reps)
+
 
 # Cell
 def generate_lagged_stimulus(stimulus, fmri_samples, TR, stim_TR,
@@ -131,13 +135,13 @@ def generate_lagged_stimulus(stimulus, fmri_samples, TR, stim_TR,
                       ' fMRI TR {2}.Proceeds by rounding stimulus samples per'
                       'TR to next integer.'.
                       format(stim_samples_per_TR, stim_TR, TR),
-                      RuntimeWarning)        
+                      RuntimeWarning)
     stim_samples_per_TR = int(np.round(stim_samples_per_TR))
-    
+
     # Handle lag_time. lag_time == TR means no lag below 
     if lag_time is None:
         lag_time = TR
-        
+
     if np.isclose(lag_time, 0.):
         warnings.warn('lag_time set to 0. To disable lagging set lag_time'
                       'either to None or TR ({}).'.format(TR))
@@ -146,15 +150,14 @@ def generate_lagged_stimulus(stimulus, fmri_samples, TR, stim_TR,
     if lag_time < TR:
         warnings.warn('lag_time ({}s) should not be smaller than TR({}s).'.
                       format(lag_time, TR))
-        #TODO ancpJR: Warning issued but seems to have no consequence
-        
-        
+        # TODO ancpJR: Warning issued but seems to have no consequence
+
     # check if lag time is multiple of TR
     if not np.isclose(lag_time / TR, np.round(lag_time / TR)):
         raise ValueError('lag_time should be a multiple of TR so '
-                'that stimulus/fMRI alignment does not change.')
+                         'that stimulus/fMRI alignment does not change.')
     if lag_time == TR:
-            warnings.warn('lag_time is None or equal to TR, no stimulus lagging will be done.', RuntimeWarning)
+        warnings.warn('lag_time is None or equal to TR, no stimulus lagging will be done.', RuntimeWarning)
     lag_TR = int(np.round(lag_time / TR))
     offset_TR = int(np.round(offset_stim / TR))
 
@@ -187,8 +190,9 @@ def generate_lagged_stimulus(stimulus, fmri_samples, TR, stim_TR,
 
     return stimulus
 
+
 # Cell
-def make_X_Y(stimuli, fmri, TR, stim_TR, lag_time=6.0, stim_start_times=None, 
+def make_X_Y(stimuli, fmri, TR, stim_TR, lag_time=6.0, stim_start_times=None,
              offset_stim=0., fill_value=np.nan, remove_nans=True,
              save_lagged_stim_path=None):
     '''Creates (lagged) features and fMRI matrices concatenated along runs
@@ -270,19 +274,19 @@ def make_X_Y(stimuli, fmri, TR, stim_TR, lag_time=6.0, stim_start_times=None,
     TODO ancpJR: Check if TR and stim_TR need to be equal. Sometimes only lengths of preditor and target matrixes are compared which only works when both are equal.
     TODO ancpJR: Check what happens if any of the temporal parameter is not an integer multuple of TR 
     '''
-    
-    #Same number of runs for predictor ans target available?
+
+    # Same number of runs for predictor ans target available?
     if len(stimuli) != len(fmri):
         raise ValueError('Stimulus and fMRI need to have the same number of'
                          ' runs. FMRI has {} and stimulus {}runs.'
                          .format(len(fmri), len(stimuli)))
-    #Same muber of predictor features per run?
+    # Same muber of predictor features per run?
     n_features = stimuli[0].shape[1]
-    if not np.all(np.array([stim.shape[1] 
+    if not np.all(np.array([stim.shape[1]
                             for stim in stimuli]) == n_features):
         raise ValueError('Stimulus has different number of features per run.')
 
-    #Process each run
+    # Process each run
     lagged_stimuli = []
     aligned_fmri = []
     run_start_indices = []
@@ -313,24 +317,24 @@ def make_X_Y(stimuli, fmri, TR, stim_TR, lag_time=6.0, stim_start_times=None,
         # TR, so effectively the stim TR is equal to TR.
         if fmri_run.shape[0] != stimulus.shape[0]:
             # check if the difference is due to offsetting and warn if not
-            if np.round(offset_stim/TR) < abs(fmri_run.shape[0] - 
-                                              stimulus.shape[0]):
+            if np.round(offset_stim / TR) < abs(fmri_run.shape[0] -
+                                                stimulus.shape[0]):
                 warnings.warn('Target (fMRI) time series longer than '
                               'predictor (stimulus) time series. Now removing'
                               'excess target fMRI/stimulus samples from the'
                               'end of the longer time series.'
                               'Target (fMRI): {}s predictor (stimulus): {}s'
-                              .format(TR*fmri_run.shape[0],
-                                      TR*stimulus.shape[0]), RuntimeWarning)
+                              .format(TR * fmri_run.shape[0],
+                                      TR * stimulus.shape[0]), RuntimeWarning)
             if fmri_run.shape[0] > stimulus.shape[0]:
-                fmri_run = fmri_run[:-(fmri_run.shape[0]-stimulus.shape[0])]
+                fmri_run = fmri_run[:-(fmri_run.shape[0] - stimulus.shape[0])]
             else:
-                stimulus = stimulus[:-(stimulus.shape[0]-fmri_run.shape[0])]
-        
+                stimulus = stimulus[:-(stimulus.shape[0] - fmri_run.shape[0])]
+
         # Build the list of run time series of predictor and target.
         lagged_stimuli.append(stimulus)
         aligned_fmri.append(fmri_run)
-        
+
         run_start_indices.append(start_index)
         start_index += stimulus.shape[0]
     return np.vstack(lagged_stimuli), aligned_fmri, run_start_indices

@@ -20,8 +20,9 @@ def make_config():
     
     # User defined variables. Variable names follow BIDS label/value keys if defined there
     arg['bids_dir'] = '/data2/azubaidi/ForrestGumpHearingLoss/BIDS_ForrGump'
+    #arg['bids_dir'] = '/data2/azubaidi/ForrestGumpHearingLoss/BIDS_ForrGump/derivatives/fmriprep'
     arg['output_dir'] = '/data2/azubaidi/ForrestGumpHearingLoss/BIDS_ForrGump/'\
-        +'derivatives/encoding_results/temporal_lobe_mask/lagging-4to-9.95_melspec_T1w/'
+        +'derivatives/encoding_results/temporal_lobe_mask/lagging0to-15.3_envelope_MNI_noconfounds/'
     # The label(s) of the participant(s) that should be analyzed. The label corresponds to
     # sub-<participant_label> from the BIDS spec (so it does not include "sub-"). 
     # If this parameter is not provided all subjects should be analyzed. Multiple 
@@ -37,22 +38,22 @@ def make_config():
     # The task-label to use for training the voxel-wise encoding model. Corresponds 
     # to label in task-<label> in BIDS naming.
     arg['task'] = ['aomovie'] #BIDS
-    arg['rec'] = ['audio'] #BIDS
-#    arg['rec'] = ['audioenv'] #BIDS
+#    arg['rec'] = ['audio'] #BIDS
+    arg['rec'] = ['audioenv'] #BIDS
 #    arg['rec'] = ['noise'] #BIDS
 #    arg['acq'] = ['S2'] #BIDS
 #    arg['acq'] = ['N4','S2'] #BIDS
     arg['acq'] = ['CS','N4','S2'] #BIDS
     arg['run'] = ["02","03","04","05","06","07"] #BIDS
 #    arg['space'] = ['MNI152NLin2009cAsym'] #BIDS
-#    arg['space'] = ['MNI152NLin6Asym'] #BIDS
-    arg['space'] = ['T1w'] #BIDS
+    arg['space'] = ['MNI152NLin6Asym'] #BIDS
+#    arg['space'] = ['T1w'] #BIDS
     arg['desc'] = ['preproc'] #BIDS
 #    arg['desc'] = ['preprocsmoothed'] #BIDS
     arg['descboldjson'] = ['preproc'] #BIDS
-    arg['scope'] = 'derivatives' #pyBIDS
+    #arg['scope'] = 'derivatives' #pyBIDS
 #    arg['derivatives'] = ['sorted','fmriprep']
-    arg['derivatives'] = True
+    #arg['derivatives'] = True
     arg['bold_suffix'] = 'bold' #BIDS
     arg['bold_extension'] = ['.nii', '.nii.gz'] #BIDS
     arg['stim_suffix'] = 'stim' #BIDS
@@ -62,7 +63,7 @@ def make_config():
     # Whether or not to perform BIDS dataset validation
     arg['skip_bids_validator'] = True
     arg['stim_always_CS'] = False
-    arg['remove_confounds'] = True
+    arg['remove_confounds'] = False
     arg['confounds_desc'] = 'confounds'
     arg['confounds_suffix'] = 'timeseries'
     arg['confounds_extension'] = '.tsv'
@@ -89,8 +90,8 @@ def make_config():
     arg['encoding_params'] = encoding_params
     # and for lagging the stimulus - we want to include 6 sec stimulus segments to predict fMRI
 #    lagging_params = {'lag_time': 6}
-#    lagging_params = {'lag_time': 18*TR,'offset_stim':0}
-    lagging_params = {'lag_time': 7*TR,'offset_stim':4}
+    lagging_params = {'lag_time': 18*TR,'offset_stim':0}
+#    lagging_params = {'lag_time': 7*TR,'offset_stim':4}
     arg['lagging_params'] = lagging_params
     arg['estimator'] = None # default with None is 'RidgeCV'
     

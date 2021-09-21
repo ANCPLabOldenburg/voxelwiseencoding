@@ -12,7 +12,7 @@ from nilearn.masking import unmask
 from nilearn.image import concat_imgs
 from nibabel import save
 from process_bids import run_model_for_subject, create_output_filename_from_args
-from process_bids import get_bids_filenames_for_econding
+from process_bids import get_bids_filenames_for_encoding
 from make_config_json import CONFIG_FILENAME
 
 def run_analysis(subject,acq,kwargs):
@@ -24,11 +24,11 @@ def run_analysis(subject,acq,kwargs):
     # get the files from the bids directory
     if args.get('remove_confounds'):
         bold_files, bold_jsons, stim_tsvs, stim_jsons, confound_tsvs =\
-             get_bids_filenames_for_econding(**args)
+             get_bids_filenames_for_encoding(**args)
         args['confound_tsvs'] = confound_tsvs
     else:
         bold_files, bold_jsons, stim_tsvs, stim_jsons =\
-             get_bids_filenames_for_econding(**args)
+             get_bids_filenames_for_encoding(**args)
     
     # make output directory
     output_dir = os.path.join(args['output_dir'],f'sub-{subject}/acq-{acq}/')
