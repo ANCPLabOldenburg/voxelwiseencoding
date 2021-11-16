@@ -42,12 +42,15 @@ def run_analysis(subject,acq,kwargs):
             os.makedirs(lagged_stim_dir)
         args['save_lagged_stim_path'] = os.path.join(lagged_stim_dir, filename_output+'_desc-laggedstim{0}.pkl')
     if args.get('save_preprocessed_bold'):
-        args['save_preprocessed_bold_path'] = os.path.join(output_dir, filename_output+'_desc-boldpreprocessed.nii.gz')
-#        args['save_preprocessed_bold_path'] = os.path.join(output_dir, filename_output+'_desc-boldpreprocessed.pkl')
+        preprocessed_bold_dir = os.path.join(output_dir,'preprocessed_bold/')
+        if not os.path.exists(preprocessed_bold_dir):
+            os.makedirs(preprocessed_bold_dir)
+        args['save_preprocessed_bold_path'] = os.path.join(preprocessed_bold_dir, filename_output+'_desc-boldpreprocessed{0}.pkl')
+#        args['save_preprocessed_bold_path'] = os.path.join(output_dir, filename_output+'_desc-boldpreprocessed.nii.gz')
     # run analysis
-    scores, masks, bold_prediction, train_indices, test_indices = \
+    scores, masks, bold_prediction, train_indices, test_indices, run_start_indices, pval_list = \
         run_model_for_subject(bold_files, bold_jsons, stim_tsvs, stim_jsons, **args)
-
+    args['run_start_indices'] = run_start_indices
     #save outputs
     #joblib.dump(ridges, os.path.join(output_dir, '{0}_desc-ridges.pkl'.format(filename_output)))
     joblib.dump(masks, os.path.join(output_dir, '{0}_desc-masks.pkl'.format(filename_output)))
@@ -56,6 +59,9 @@ def run_analysis(subject,acq,kwargs):
     
     scores_bold = concat_imgs([unmask(scores_fold, mask) for scores_fold, mask in zip(scores.T, masks)])
     save(scores_bold, os.path.join(output_dir, '{0}_desc-scores.nii.gz'.format(filename_output)))
+
+    pvals = concat_imgs([unmask(pval, mask) for pval, mask in zip(pval_list.T, masks)])
+    save(pvals, os.path.join(output_dir, '{0}_desc-pvals.nii.gz'.format(filename_output)))
     
     bold_prediction_nifti = unmask(bold_prediction, masks[0])
     save(bold_prediction_nifti, os.path.join(output_dir, '{0}_desc-boldprediction.nii.gz'.format(filename_output)))

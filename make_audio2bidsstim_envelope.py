@@ -57,9 +57,9 @@ if __name__ == "__main__":
                       
 #    subjects = ["01","02","03","04","05","06","07","08","09","10"]
 #    subjects = ["03","09"]
-    sessions = ["01"]
+#     sessions = ["01"]
     subjects = ["10"]
-#    sessions = ["01","02","03"]
+    sessions = ["01","02","03"]
     # Name of the folders where unincluded runs (01 and 08) go for each session
     unincluded_runs = {"01":"1st","02":"2nd","03":"3rd"}
     for subject in subjects:
@@ -80,43 +80,43 @@ if __name__ == "__main__":
 #                    continue
                 print("Converting ",wav_file)
 #                rate, sig = wav.read(wav_file)
-                sig, Fs = lbr.load(wav_file, sr=None, mono=True)
+#                 sig, Fs = lbr.load(wav_file, sr=None, mono=True)
                 
-                from scipy.signal import welch
+#                 from scipy.signal import welch
+#                 #print('Plotting',save_path)
+#                 #X = joblib.load(spec_path)
+#             #    print(X.shape)
+#             #    plt.plot(X[50])
+#                 f, Pxx = welch(sig, fs=Fs)
+#                 plt.semilogy(f,Pxx)
+#                 plt.xlabel('Frequency (Hz)')
+#                 plt.ylabel('PSD (V²/Hz)')
+#                 max_freq = f[np.argmax(Pxx)]
+#                 plt.axvline(max_freq,color='r')
+#                 plt.title(f'Max freq: {max_freq}')
+# #                plt.savefig(save_path)
+#                 plt.show()
+#                 plt.close()
+#
+                sig, Fs = lbr.load(wav_file, sr=4000, mono=True)
+                
                 #print('Plotting',save_path)
                 #X = joblib.load(spec_path)
             #    print(X.shape)
             #    plt.plot(X[50])
-                f, Pxx = welch(sig, fs=Fs)
-                plt.semilogy(f,Pxx)
-                plt.xlabel('Frequency (Hz)')
-                plt.ylabel('PSD (V²/Hz)')
-                max_freq = f[np.argmax(Pxx)]
-                plt.axvline(max_freq,color='r')
-                plt.title(f'Max freq: {max_freq}')
-#                plt.savefig(save_path)
-                plt.show()
-                plt.close()
-                
-                sig, Fs = lbr.load(wav_file, sr=200, mono=True)
-                
-                #print('Plotting',save_path)
-                #X = joblib.load(spec_path)
-            #    print(X.shape)
-            #    plt.plot(X[50])
-                f, Pxx = welch(sig, fs=Fs)
-                plt.semilogy(f,Pxx)
-                plt.xlabel('Frequency (Hz)')
-                plt.ylabel('PSD (V²/Hz)')
-                max_freq = f[np.argmax(Pxx)]
-                plt.axvline(max_freq,color='r')
-                plt.title(f'Max freq: {max_freq}')
-#                plt.savefig(save_path)
-                plt.show()
-                plt.close()
+#                 f, Pxx = welch(sig, fs=Fs)
+#                 plt.semilogy(f,Pxx)
+#                 plt.xlabel('Frequency (Hz)')
+#                 plt.ylabel('PSD (V²/Hz)')
+#                 max_freq = f[np.argmax(Pxx)]
+#                 plt.axvline(max_freq,color='r')
+#                 plt.title(f'Max freq: {max_freq}')
+# #                plt.savefig(save_path)
+#                 plt.show()
+#                 plt.close()
     
-#                if len(sig.shape) > 1:
-#                       sig = np.mean(sig,axis=1) # convert a WAV from stereo to mono
+               # if len(sig.shape) > 1:
+               #        sig = np.mean(sig,axis=1) # convert a WAV from stereo to mono
 #                
                 ## set parameters ##
                 #rate        = 44100                     # sampling rate
@@ -136,14 +136,16 @@ if __name__ == "__main__":
 #                          "hop_length":hoplen, "n_mels":nmel, "fmax":highfreq, 
 #                          "fmin":lowfreq}
                 envelope = np.abs(hilbert(sig))
+                envelope = decimate(envelope,2)
                 envelope = decimate(envelope,5)
-                Fs = 40
+                envelope = decimate(envelope,5)
+                Fs = 80
 #                melspec, sr_spec, freqs = get_mel_spectrogram(wav_file, **config)
                 outfile_base = os.path.basename(wav_file).split('.')[0]
                 if use_noise:
                     outfile_base += '_stim'
                 else:
-                    outfile_base = f"sub-{subject}_" + outfile_base.replace("presstimuli","recording-audioenv_stim")
+                    outfile_base = f"sub-{subject}_" + outfile_base.replace("presstimuli","recording-audioenv80_stim")
 					
                 if output_sorted:
                     if 'run-01' in wav_file or 'run-08' in wav_file:
@@ -164,12 +166,12 @@ if __name__ == "__main__":
                 json_file = os.path.join(subses_output_folder, outfile_base+'.json')
                 png_file = os.path.join(subses_output_folder, outfile_base+'.png')
                 
-#                print('Saving ', json_file)
-#                np.savetxt(tsv_file, envelope, delimiter='\t')
-#                metadata = {'SamplingFrequency': 40, 'StartTime': 0,
-#                            'Columns': [0]}
-#                with open(json_file, 'w+') as fp:
-#                    json.dump(metadata, fp)
+                print('Saving ', json_file)
+                np.savetxt(tsv_file, envelope, delimiter='\t')
+                metadata = {'SamplingFrequency': 80, 'StartTime': 0,
+                            'Columns': [0]}
+                with open(json_file, 'w+') as fp:
+                    json.dump(metadata, fp)
                     
 #                Smel = lbr.feature.melspectrogram(y=envelope, n_fft=nfft, sr=Fs, 
 #                                                  win_length=winlen, hop_length=hoplen,
@@ -177,39 +179,39 @@ if __name__ == "__main__":
                 
                 
                 
-#                Smel = lbr.feature.melspectrogram(y=envelope, sr=Fs) 
-#                S_dB = lbr.power_to_db(Smel, ref=np.max)
-#                #RMS
-#                rms_np = np.zeros([1,len(Smel.T)])
-#                for i in np.arange(len(Smel.T)):
-#                    rms_np[0,i] = np.sqrt(np.mean(Smel[:,i]**2))
-#            
-#                #plot
-##                head, tail      = os.path.split(wav_file) # extracts the filename
-#                plt.figure(figsize=(5,8))
-#                
-#                ax1 = plt.subplot(noay,noax,1) # Plot the amplitude envelope of a waveform.
-##                lbr.display.waveplot(y=envelope, sr=Fs, x_axis='time', offset=0.0, max_sr=1000)
-#                t = np.arange(len(envelope))/Fs
-#                plt.plot(t,envelope)
-#                plt.title('Envelope')
-#    #                    plt.ylim([-25000, 25000])
-#                ax1.set_xlabel('Time [sec]')
-#                
-#                ax2 = plt.subplot(noay,noax,2)
-#                lbr.display.specshow(S_dB,y_axis='mel', sr=Fs,fmax=20)  
-##                lbr.display.specshow(S_dB, y_axis='mel', sr=Fs, fmax=highfreq)              
-#                plt.title('Mel-frequency spectrogram') 
-#                
-#                ax3 = plt.subplot(noay,noax,3)
-#                plt.semilogy(rms_np.T, label='RMS Energy')
-#                plt.xticks([])
-##                plt.xlim([0, rms_np.shape[-1]])
-##                plt.ylim([1, 10**11])
-#                plt.title('RMS Energy')
-##                plt.legend()
-#                
-#                plt.tight_layout()
-#                plt.savefig(png_file) # save plot to file 
-#    #                    plt.show()  
-#                plt.close()
+                Smel = lbr.feature.melspectrogram(y=envelope, sr=Fs)
+                S_dB = lbr.power_to_db(Smel, ref=np.max)
+                #RMS
+                rms_np = np.zeros([1,len(Smel.T)])
+                for i in np.arange(len(Smel.T)):
+                   rms_np[0,i] = np.sqrt(np.mean(Smel[:,i]**2))
+
+                #plot
+                #                head, tail      = os.path.split(wav_file) # extracts the filename
+                plt.figure(figsize=(5,8))
+
+                ax1 = plt.subplot(noay,noax,1) # Plot the amplitude envelope of a waveform.
+                #                lbr.display.waveplot(y=envelope, sr=Fs, x_axis='time', offset=0.0, max_sr=1000)
+                t = np.arange(len(envelope))/Fs
+                plt.plot(t,envelope)
+                plt.title('Envelope')
+                #                    plt.ylim([-25000, 25000])
+                ax1.set_xlabel('Time [sec]')
+
+                ax2 = plt.subplot(noay,noax,2)
+                lbr.display.specshow(S_dB,y_axis='mel', sr=Fs,fmax=Fs//2)
+                #                lbr.display.specshow(S_dB, y_axis='mel', sr=Fs, fmax=highfreq)
+                plt.title('Mel-frequency spectrogram')
+
+                ax3 = plt.subplot(noay,noax,3)
+                plt.semilogy(rms_np.T, label='RMS Energy')
+                plt.xticks([])
+                #                plt.xlim([0, rms_np.shape[-1]])
+                #                plt.ylim([1, 10**11])
+                plt.title('RMS Energy')
+                #                plt.legend()
+
+                plt.tight_layout()
+                plt.savefig(png_file) # save plot to file
+                #                    plt.show()
+                plt.close()

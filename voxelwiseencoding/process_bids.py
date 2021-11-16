@@ -271,7 +271,8 @@ def get_bids_filenames_for_encoding(**kwargs):
     # get all files in bids_dir
 #    layout = bids.BIDSLayout(kwargs['bids_dir'], derivatives=kwargs['derivatives'],
 #                             database_path='./temp/')
-    layout = bids.BIDSLayout(kwargs['bids_dir']+'/derivatives/fmriprep')
+    subfolder = kwargs.get('subfolder', '')
+    layout = bids.BIDSLayout(kwargs['bids_dir'] + subfolder)
 
     # select the nifti bold file names in the scope 
     bold_files = layout.get(subject=kwargs['sub'],
@@ -464,26 +465,24 @@ def run_model_for_subject(bold_files, bold_json, stim_tsv, stim_json, **kwargs):
     stim_data_lagged, preprocessed_bold, run_start_indices = make_X_Y(
         stim_data, preprocessed_bold, bold_meta['RepetitionTime'],
         stim_TR, stim_start_times=stim_start_times,
-        save_lagged_stim_path=args.get('save_lagged_stim_path'), **lagging_params)
+        save_lagged_stim_path=args.get('save_lagged_stim_path'),
+        save_bold_path=args.get('save_preprocessed_bold_path'), **lagging_params)
 
-    args['run_start_indices'] = run_start_indices
 
-    preprocessed_bold = np.vstack(preprocessed_bold)
-
-    if args.get('save_preprocessed_bold'):
-        bold_preprocessed_nifti = unmask(preprocessed_bold, masks[0])
-        #        bold_preprocessed_nifti = concat_imgs([unmask(bold, resampled_mask)
-        #                                               for bold,resampled_mask in zip(preprocessed_bold,masks)])
-        save(bold_preprocessed_nifti, args['save_preprocessed_bold_path'])
+    # if args.get('save_preprocessed_bold'):
+    #     bold_preprocessed_nifti = unmask(preprocessed_bold, masks[0])
+    #     #        bold_preprocessed_nifti = concat_imgs([unmask(bold, resampled_mask)
+    #     #                                               for bold,resampled_mask in zip(preprocessed_bold,masks)])
+    #     save(bold_preprocessed_nifti, args['save_preprocessed_bold_path'])
 
     #    preprocessed_bold = np.vstack(preprocessed_bold)
 
     # compute ridge and scores for folds
-    scores, bold_prediction, train_indices, test_indices = \
+    scores, bold_prediction, train_indices, test_indices, pval_list = \
         get_model_plus_scores(stim_data_lagged, preprocessed_bold,
                               estimator=args['estimator'],
                               run_start_indices=run_start_indices,
                               model_dump_path=args.get('model_dump_path'),
                               **encoding_params)
 
-    return scores, masks, bold_prediction, train_indices, test_indices
+    return scores, masks, bold_prediction, train_indices, test_indices, run_start_indices, pval_list

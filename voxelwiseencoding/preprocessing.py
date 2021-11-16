@@ -45,8 +45,11 @@ def preprocess_bold_fmri(bold, mask=None, detrend=True, standardize='zscore',
         else:
             data = bold.get_data()
         data = np.reshape(data, (-1, data.shape[-1])).T
-    return clean(data, detrend=detrend, standardize=standardize,
-                 confounds=confounds, **kwargs), mask
+    if kwargs.get('skip_bold_preprocessing'):
+        return data, mask
+    else:
+        return clean(data, detrend=detrend, standardize=standardize,
+                     confounds=confounds, **kwargs), mask
 
 
 # Cell
@@ -194,7 +197,7 @@ def generate_lagged_stimulus(stimulus, fmri_samples, TR, stim_TR,
 # Cell
 def make_X_Y(stimuli, fmri, TR, stim_TR, lag_time=6.0, stim_start_times=None,
              offset_stim=0., fill_value=np.nan, remove_nans=True,
-             save_lagged_stim_path=None):
+             save_lagged_stim_path=None, save_bold_path=None):
     '''Creates (lagged) features and fMRI matrices concatenated along runs
     
     Makes X and Y matrices for the encoding model Y=X*B. X would be a matrix
@@ -296,8 +299,6 @@ def make_X_Y(stimuli, fmri, TR, stim_TR, lag_time=6.0, stim_start_times=None,
             stimulus, fmri_run.shape[0], TR, stim_TR, lag_time=lag_time,
             start_time=stim_start_times[i] if stim_start_times else 0.,
             offset_stim=offset_stim, fill_value=fill_value)
-        if save_lagged_stim_path:
-            joblib.dump(stimulus, save_lagged_stim_path.format(i))
         # remove nans in stim/fmri here
         # ancpJR: where would they com from. Delete?
         # The nans are added in generate_lagged_stimulus at the start of lagged
@@ -331,10 +332,15 @@ def make_X_Y(stimuli, fmri, TR, stim_TR, lag_time=6.0, stim_start_times=None,
             else:
                 stimulus = stimulus[:-(stimulus.shape[0] - fmri_run.shape[0])]
 
+        if save_lagged_stim_path:
+            joblib.dump(stimulus, save_lagged_stim_path.format(i))
+        if save_bold_path:
+            joblib.dump(fmri_run, save_bold_path.format(i))
+
         # Build the list of run time series of predictor and target.
         lagged_stimuli.append(stimulus)
         aligned_fmri.append(fmri_run)
 
         run_start_indices.append(start_index)
         start_index += stimulus.shape[0]
-    return np.vstack(lagged_stimuli), aligned_fmri, run_start_indices
+    return np.vstack(lagged_stimuli), np.vstack(aligned_fmri), run_start_indices

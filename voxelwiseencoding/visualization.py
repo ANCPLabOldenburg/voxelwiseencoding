@@ -164,10 +164,10 @@ def gather_files_and_plot_avg_scores():
                     save_path = bids_str + 'scoresall.png'
         plot_avg_score_all_conditions_plus_diffs(scores_paths,mask_paths,save_path)
     
-def get_arg_highscore(scores_path):
+def get_arg_highscore(scores_path,fold=0):
     import nibabel as nib
     n1_img = nib.load(scores_path)
-    data = n1_img.dataobj[...,0] # Only use first cv fold
+    data = n1_img.dataobj[...,fold] # Only use first cv fold
     arg_highscore = np.argmax(data)
     return np.unravel_index(arg_highscore,data.shape)
     
@@ -184,7 +184,9 @@ def plot_highest_score_bold_predicted_vs_actual(path_predicted,path_actual,arg_h
     from scipy.stats import zscore
     
     bold_predicted = nib.load(path_predicted)
-    bold = nib.load(path_actual)
+    bold = []
+    for i in range(6):
+        bold.append(joblib.load(path_actual.format(i)))
     #print(bold_predicted.shape)
     #print(bold.shape)
     # bold.shape[3] == 1038
@@ -327,17 +329,22 @@ def plot_original_bold_spectrograms():
     
 nmel = 1
 #nmel = 48
-def get_max_coefs(ridges_path,mask_path,arg_highscore):
+def get_max_coefs(ridges_path,mask_path,arg_highscore,scores_path=None):
     import joblib
     from nilearn.masking import unmask
-    ridges = joblib.load(ridges_path)
     mask = joblib.load(mask_path)
-    coefs = unmask(ridges.coef_.T,mask[0])
-    #print(ridges.coef_.shape)
-    #print(coefs.shape)
-    max_coefs = coefs._dataobj[arg_highscore]
+    results = []
+    for fold in range(6):
+        ridges = joblib.load(ridges_path.format(fold))
+        coefs = unmask(ridges.coef_.T, mask[fold])
+        #print(ridges.coef_.shape)
+        #print(coefs.shape)
+        if scores_path is not None:
+            arg_highscore = get_arg_highscore(scores_path, fold=fold)
+        max_coefs = coefs._dataobj[arg_highscore]
+        results.append(max_coefs.reshape((-1,nmel)))
 #    nmel = 48
-    return max_coefs.reshape((-1,nmel))
+    return results
     
 def plot_max_coefs(max_coefs,save_path):
     print('Plotting',save_path)
@@ -349,75 +356,82 @@ def plot_max_coefs(max_coefs,save_path):
                        1515, 1616, 1722, 1836, 1957, 2087, 2225, 2372, 2528, 
                        2696, 2874, 3064, 3266, 3482, 3712, 3957, 4219, 4497, 
                        4795, 5112, 5449, 5809, 6193, 6603, 7039, 7504, 8000]
-    n_lag_bins = max_coefs.shape[0]
-#    lagging_offset = 4.25
-    lagging_offset = 0.0
-#    lagging_offset = 4.0
-    x_ticks = (np.arange(n_lag_bins) * 0.025) + lagging_offset
-#    x_stride = 20
-    x_stride = 80
-    plt.plot(max_coefs)
-#    plt.imshow(max_coefs.T,aspect='auto',origin='lower')
-#    plt.gca().set_yticks(np.arange(0,nmel,nmel_stride))
-#    plt.gca().set_yticklabels(mel_frequencies[::nmel_stride])
-    plt.gca().set_xticks(np.arange(3,n_lag_bins,x_stride))
-    plt.gca().set_xticklabels(["%.1f"% tick for tick in x_ticks[3::x_stride]])
-#    cbar = plt.colorbar()
-#    cbar.set_label('Ridge coefficient', rotation=270)
-    plt.xlabel('Time lag (s)')
-#    plt.ylabel('Mel frequency (Hz)')
-    plt.ylabel('Ridge coefficient')
-    plt.savefig(save_path+'.svg')
-    plt.close()
-    from scipy.signal import welch
-    f, Pxx = welch(np.squeeze(max_coefs), fs=40)
-    plt.semilogy(f,Pxx)
-    plt.xlabel('Frequency (Hz)')
-    plt.ylabel('PSD (V²/Hz)')
-    max_freq = f[np.argmax(Pxx)]
-    plt.axvline(max_freq,color='r')
-    plt.title(f'Max freq: {max_freq}')
-    plt.savefig(save_path+'_welch.svg')
-#            plt.show()
-    plt.close()
-    fs = int(np.round(len(f)/20))
-    f, Pxx = welch(Pxx, fs=fs)
-    plt.semilogy(f,Pxx)
-    plt.xlabel('Frequency (Hz)')
-    plt.ylabel('PSD (V²/Hz)')
-    max_freq = f[np.argmax(Pxx)]
-    plt.axvline(max_freq,color='r')
-    plt.title(f'Max freq: {max_freq}')
-    
-    plt.savefig(save_path+'_welchwelch.svg')
-#            plt.show()
-    plt.close()
-    
-    fs = int(np.round(len(f)/20))
-    f, Pxx = welch(Pxx, fs=fs)
-    plt.semilogy(f,Pxx)
-    plt.xlabel('Frequency (Hz)')
-    plt.ylabel('PSD (V²/Hz)')
-    max_freq = f[np.argmax(Pxx)]
-    plt.axvline(max_freq,color='r')
-    plt.title(f'Max freq: {max_freq}')
-    
-    plt.savefig(save_path+'_welchwelchwelch.svg')
-#            plt.show()
-    plt.close()
-    
-    fs = int(np.round(len(f)/20))
-    f, Pxx = welch(Pxx, fs=fs)
-    plt.semilogy(f,Pxx)
-    plt.xlabel('Frequency (Hz)')
-    plt.ylabel('PSD (V²/Hz)')
-    max_freq = f[np.argmax(Pxx)]
-    plt.axvline(max_freq,color='r')
-    plt.title(f'Max freq: {max_freq}')
-    
-    plt.savefig(save_path+'_welchwelchwelchwelch.svg')
-#            plt.show()
-    plt.close()
+    # avg_max_coefs = np.array(max_coefs).mean(axis=0)
+    for fold in range(6):
+        n_lag_bins = max_coefs[fold].shape[0]
+        # n_lag_bins = avg_max_coefs.shape[0]
+    #    lagging_offset = 4.25
+        lagging_offset = 0.0
+    #    lagging_offset = 4.0
+        x_ticks = (np.arange(n_lag_bins) * 0.025) + lagging_offset
+    #    x_stride = 20
+        x_stride = 80
+        plt.plot(max_coefs[fold])
+        # plt.plot(avg_max_coefs)
+    #    plt.imshow(max_coefs.T,aspect='auto',origin='lower')
+    #    plt.gca().set_yticks(np.arange(0,nmel,nmel_stride))
+    #    plt.gca().set_yticklabels(mel_frequencies[::nmel_stride])
+        plt.gca().set_xticks(np.arange(3,n_lag_bins,x_stride))
+        plt.gca().set_xticklabels(["%.1f"% tick for tick in x_ticks[3::x_stride]])
+    #    cbar = plt.colorbar()
+    #    cbar.set_label('Ridge coefficient', rotation=270)
+        plt.xlabel('Time lag (s)')
+    #    plt.ylabel('Mel frequency (Hz)')
+        plt.ylabel('Ridge coefficient')
+        plt.savefig(save_path.format(fold) + '.svg')
+        # plt.savefig(save_path + '_avg.svg')
+        plt.close()
+
+
+#     from scipy.signal import welch
+#     f, Pxx = welch(np.squeeze(max_coefs), fs=40)
+#     plt.semilogy(f,Pxx)
+#     plt.xlabel('Frequency (Hz)')
+#     plt.ylabel('PSD (V²/Hz)')
+#     max_freq = f[np.argmax(Pxx)]
+#     plt.axvline(max_freq,color='r')
+#     plt.title(f'Max freq: {max_freq}')
+#     plt.savefig(save_path+'_welch.svg')
+# #            plt.show()
+#     plt.close()
+#     fs = int(np.round(len(f)/20))
+#     f, Pxx = welch(Pxx, fs=fs)
+#     plt.semilogy(f,Pxx)
+#     plt.xlabel('Frequency (Hz)')
+#     plt.ylabel('PSD (V²/Hz)')
+#     max_freq = f[np.argmax(Pxx)]
+#     plt.axvline(max_freq,color='r')
+#     plt.title(f'Max freq: {max_freq}')
+#
+#     plt.savefig(save_path+'_welchwelch.svg')
+# #            plt.show()
+#     plt.close()
+#
+#     fs = int(np.round(len(f)/20))
+#     f, Pxx = welch(Pxx, fs=fs)
+#     plt.semilogy(f,Pxx)
+#     plt.xlabel('Frequency (Hz)')
+#     plt.ylabel('PSD (V²/Hz)')
+#     max_freq = f[np.argmax(Pxx)]
+#     plt.axvline(max_freq,color='r')
+#     plt.title(f'Max freq: {max_freq}')
+#
+#     plt.savefig(save_path+'_welchwelchwelch.svg')
+# #            plt.show()
+#     plt.close()
+#
+#     fs = int(np.round(len(f)/20))
+#     f, Pxx = welch(Pxx, fs=fs)
+#     plt.semilogy(f,Pxx)
+#     plt.xlabel('Frequency (Hz)')
+#     plt.ylabel('PSD (V²/Hz)')
+#     max_freq = f[np.argmax(Pxx)]
+#     plt.axvline(max_freq,color='r')
+#     plt.title(f'Max freq: {max_freq}')
+#
+#     plt.savefig(save_path+'_welchwelchwelchwelch.svg')
+# #            plt.show()
+#     plt.close()
 
 
 def plot_max_coef_diff(max_coefs,max_coefs_CS,save_path):
@@ -560,19 +574,30 @@ if __name__=='__main__':
 #                   OUTPUT_BASE+'temporal_lobe_mask/lagging-4to-9.95_envelope_MNI/',
 #                   OUTPUT_BASE+'temporal_lobe_mask/lagging-4to-9.95_envelope_T1w/',
 #                   OUTPUT_BASE+'temporal_lobe_mask/lagging0to-15.3_envelope_MNI/',
-                   OUTPUT_BASE+'temporal_lobe_mask/lagging0to-15.3_scannernoise/',
-#                   OUTPUT_BASE+'temporal_lobe_mask/lagging0to-15.3_envelope_T1w/',
-#                   OUTPUT_BASE+'temporal_lobe_mask/lagging-4to-9.95_melspec_MNI/',
+#                  OUTPUT_BASE+'temporal_lobe_mask/lagging0to-15.3_envelope_MNI_nopreprocessing/',
+                  # OUTPUT_BASE+'temporal_lobe_mask/lagging0to-15.3_envelope_MNI_noconfounds/',
+                   # OUTPUT_BASE+'temporal_lobe_mask/lagging0to-15.3_scannernoise/',
+                  # OUTPUT_BASE+'temporal_lobe_mask/lagging0to-15.3_envelope_T1w/',
+                  # OUTPUT_BASE+'temporal_lobe_mask/lagging-4to-9.95_melspec_MNI/',
 #                   OUTPUT_BASE+'temporal_lobe_mask/lagging-4to-9.95_melspec_T1w/'
+#                  '/data2/fyilmaz/simulated_data/output_without_noise/',
+#                   OUTPUT_BASE+'temporal_lobe_mask/lagging0to-15.3_envelope_MNI_nolowpass/',
+#                   OUTPUT_BASE+'temporal_lobe_mask/lagging0to-15.3_envelope4k/',
+#                   OUTPUT_BASE+'temporal_lobe_mask/lagging0to-15.3_envelope2k/',
+#                   OUTPUT_BASE+'temporal_lobe_mask/lagging0to-15.3_envelope1k/',
+#                   OUTPUT_BASE+'temporal_lobe_mask/lagging0to-15.3_envelope_linearregression/',
+#                   OUTPUT_BASE+'temporal_lobe_mask/lagging0to-15.3_envelope_lassocv/',
+#                   OUTPUT_BASE+'temporal_lobe_mask/lagging0to-15.3_envelope_SAGsolver/'
+                  OUTPUT_BASE+'temporal_lobe_mask/lagging0to-15.3_envelope80/',
                    ]
     subjects = ['10']
-    conditions = ['CS','N4','S2']
+    # conditions = ['CS','N4','S2']
     runs = ["02","03","04","05","06","07"]
 #    subjects = ['10']
-#    conditions = ['CS']
-#    runs = ["02"]
+    conditions = ['S2']
+#     runs = ["02"]
     do_scores = True
-    do_bold_predicted_vs_actual = True
+    do_bold_predicted_vs_actual = False
     do_max_coefs = True
     do_avg_scores_per_fold = True
     do_lagged_stim = True
@@ -605,22 +630,23 @@ if __name__=='__main__':
 #                        +f'derivatives/fmriprep/sub-{sub}/ses-{acq}/func/sub-{sub}_ses-{acq}'\
 #                        +f'_task-aomovie_acq-{acq}_run-2_space-MNI152NLin2009cAsym_res-'\
 #                        +'2_desc-preproc_bold.nii.gz'
-                    bold_actual = bids_str + 'boldpreprocessed.nii.gz'
+#                     bold_actual = bids_str + 'boldpreprocessed.nii.gz'
+                    bold_actual = acq_dir + f'preprocessed_bold/sub-{sub}_task-aomovie_acq-{acq}_desc-boldpreprocessed{0}.pkl'
                     plot_highest_score_bold_predicted_vs_actual(bold_predicted,bold_actual,
                                                                 arg_highscore,bold_save)
                 if do_max_coefs:
-                    ridges_path = bids_str + 'ridgesfold0.pkl'
+                    ridges_path = bids_str + 'ridgesfold{0}.pkl'
                     mask_path = bids_str + 'masks.pkl'
-                    max_coefs_save = bids_str + 'maxcoefs'
-                    max_coefs_diff_save = bids_str + 'maxcoefsdiff.svg'
-                    max_coefs = get_max_coefs(ridges_path,mask_path,arg_highscore)
+                    max_coefs_save = bids_str + 'maxcoefsfold{0}'
+                    # max_coefs_diff_save = bids_str + 'maxcoefsdiff.svg'
+                    max_coefs = get_max_coefs(ridges_path,mask_path,arg_highscore,scores_path=scores_path)
                     plot_max_coefs(max_coefs,max_coefs_save)
-                    if acq=='CS':
-                        max_coefs_CS = max_coefs
-                        arg_highscore_CS = arg_highscore
-                    elif max_coefs_CS is not None:
-                        max_coefs = get_max_coefs(ridges_path,mask_path,arg_highscore_CS)
-                        plot_max_coef_diff(max_coefs,max_coefs_CS,max_coefs_diff_save)
+                    # if acq=='CS':
+                    #     max_coefs_CS = max_coefs
+                    #     arg_highscore_CS = arg_highscore
+                    # elif max_coefs_CS is not None:
+                    #     max_coefs = get_max_coefs(ridges_path,mask_path,arg_highscore_CS)
+                    #     plot_max_coef_diff(max_coefs,max_coefs_CS,max_coefs_diff_save)
                 if do_avg_scores_per_fold:
                     mask_path = bids_str + 'masks.pkl'
                     r2_save = bids_str + 'scoresavg.svg'
@@ -632,8 +658,8 @@ if __name__=='__main__':
                         N4scores = N4_str + 'scores.nii.gz'
                         N4mask = N4_str + 'masks.pkl'
                         S2_str = os.path.join(sub_dir,f'acq-S2/sub-{sub}_task-aomovie_acq-S2_desc-')
-                        S2scores = N4_str + 'scores.nii.gz'
-                        S2mask = N4_str + 'masks.pkl'
+                        S2scores = S2_str + 'scores.nii.gz'
+                        S2mask = S2_str + 'masks.pkl'
                         if os.path.exists(N4scores) and os.path.exists(S2scores):
                             plot_avg_score_all_conditions([scores_path,N4scores,S2scores],
                                                           [mask_path,N4mask,S2mask],

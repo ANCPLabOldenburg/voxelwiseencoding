@@ -7,7 +7,7 @@ __all__ = ['product_moment_corr', 'get_model_plus_scores', 'BlockMultiOutput']
 import numpy as np
 #from sklearn.metrics import r2_score
 from sklearn.model_selection import KFold
-from sklearn.linear_model import RidgeCV
+from sklearn.linear_model import Ridge, RidgeCV, MultiTaskLassoCV, LinearRegression, SGDRegressor
 #import warnings
 import joblib
 import copy
@@ -16,23 +16,26 @@ from sklearn.multioutput import MultiOutputRegressor, _fit_estimator
 #from sklearn.utils import check_X_y, check_array
 from sklearn.utils.validation import check_is_fitted
 from sklearn.base import RegressorMixin
+from sklearn.preprocessing import StandardScaler
+from scipy.special import btdtr
 
-def product_moment_corr(x,y):
-    '''Product-moment correlation for two ndarrays x, y'''
-    from sklearn.preprocessing import StandardScaler
+
+def product_moment_corr(x, y):
+    """ Product-moment correlation for two ndarrays x, y """
     x = StandardScaler().fit_transform(x)
     y = StandardScaler().fit_transform(y)
     n = x.shape[0]
-    r = (1/(n-1))*(x*y).sum(axis=0)
-    return r
+    r = (1/(n-1)) * (x*y).sum(axis=0)
+    ab = n / 2 - 1
+    prob = 2 * btdtr(ab, ab, 0.5 * (1 - abs(np.float64(r))))
+    return r, prob
 
-# Cell
 
 def get_model_plus_scores(X, y, estimator=None, cv=None, scorer=None,
                           voxel_selection=False, validate=True, 
                           run_start_indices=None, model_dump_path=None,
                           **kwargs):
-    ''' Returns multiple estimator trained in a cross-validation on n_splits of 
+    """ Returns multiple estimator trained in a cross-validation on n_splits of
         the data and scores on the left-out folds.
 
     Parameters
@@ -40,12 +43,12 @@ def get_model_plus_scores(X, y, estimator=None, cv=None, scorer=None,
         y : ndarray of shape (samples, targets)
         estimator : None or estimator object that implements fit and predict
                     if None, uses RidgeCV per default
-        cv : int, None, 'leave-one-run-out', or a cross-validation object that 
+        cv : int, None, 'leave-one-run-out', or a cross-validation object that
              implements a split method, default is None, optional.
              int specifies the number of cross-validation splits of a KFold cross validation.
              None defaults to a scikit-learn KFold cross-validation with default settings.
              'leave-one-run-out' specifies leave-one-run-out cross-validation.
-             A scikit-learn-like cross-validation object needs to implement a 
+             A scikit-learn-like cross-validation object needs to implement a
              split method for X and y.
         scorer : None or any sci-kit learn compatible scoring function, optional
                  default uses product moment correlation
@@ -57,18 +60,17 @@ def get_model_plus_scores(X, y, estimator=None, cv=None, scorer=None,
                      or to just train the estimator
                      if False, scores will be computed on the training set
         run_start_indices: list of int, optional, default None
-                     Start index of each run which is used to group data into 
+                     Start index of each run which is used to group data into
                      cross-validation folds. If provided and cv is 'leave-one-run-out',
                      a leave-one-run-out cross-validation splitter will be used.
         model_dump_path: Path where to save dumps of model coefficients.
                          Default None, None means no saving
-        kwargs : additional parameters that will be used to initialize RidgeCV 
-                 if estimator is None
-        
+        **kwargs : additional arguments that will be passed to the estimator
+
     Returns
         tuple of n_splits estimators trained on training folds or single estimator
         if validation is False and scores for all concatenated out-of-fold predictions
-    '''
+    """
     #from sklearn.utils.estimator_checks import check_regressor_multioutput
     if scorer is None:
         scorer = product_moment_corr
@@ -90,11 +92,20 @@ def get_model_plus_scores(X, y, estimator=None, cv=None, scorer=None,
     
     #models = []
     score_list = []
+    pval_list = []
     bold_prediction = []
     train_indices = []
     test_indices = []
-    if estimator is None:
+    if estimator is None or estimator == 'RidgeCV':
         estimator = RidgeCV(**kwargs)
+    elif estimator == 'Ridge':
+        estimator = Ridge(**kwargs)
+    elif estimator == 'LinearRegression':
+        estimator = LinearRegression(**kwargs)
+    elif estimator == 'MultiTaskLassoCV':
+        estimator = MultiTaskLassoCV(**kwargs)
+    elif estimator == 'SGDRegressor':
+        estimator = SGDRegressor(**kwargs)
 
     if voxel_selection:
         voxel_var = np.var(y, axis=0)
@@ -110,22 +121,25 @@ def get_model_plus_scores(X, y, estimator=None, cv=None, scorer=None,
             test_indices.append(test)
             if voxel_selection:
                 scores = np.zeros_like(voxel_var)
+                pvals = np.zeros_like(voxel_var)
 #                scores[voxel_var > 0.] =  scorer(y[test], models[-1].predict(X[test]))
-                scores[voxel_var > 0.] =  scorer(y[test], bold_prediction[-1])
+                scores[voxel_var > 0.], pvals[voxel_var > 0.] = scorer(y[test], bold_prediction[-1])
             else:
 #                scores = scorer(y[test], models[-1].predict(X[test]))
-                scores = scorer(y[test], bold_prediction[-1])
+                scores, pvals = scorer(y[test], bold_prediction[-1])
             score_list.append(scores[:, None])
+            pval_list.append(pvals[:, None])
             print('Saving '+model_dump_path.format(cv_fold_idx))
             joblib.dump(model, model_dump_path.format(cv_fold_idx))
             cv_fold_idx += 1
         score_list = np.concatenate(score_list, axis=-1)
+        pval_list = np.concatenate(pval_list, axis=-1)
         bold_prediction = np.concatenate(bold_prediction, axis=0)
     else:
 #        models = estimator.fit(X, y)
         estimator.fit(X, y)
         score_list = scorer(y, estimator.predict(X))
-    return score_list, bold_prediction, train_indices, test_indices
+    return score_list, bold_prediction, train_indices, test_indices, pval_list
     #return models, score_list, bold_prediction, train_indices, test_indices
 
 # Cell
