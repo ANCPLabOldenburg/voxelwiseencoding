@@ -262,6 +262,8 @@ def plot_first_pc_bold_predicted_vs_actual(path_predicted, path_actual, save_pat
 
     pca = PCA(n_components=1)
     bold_predicted_1stPC = zscore(pca.fit_transform(bold_predicted))
+    # bold_actual_1stPC = zscore(pca.fit_transform(bold_actual))
+    # bold_actual_1stPC = zscore(np.dot(bold_actual - bold_actual.mean(axis=0), pca.components_.T))
     bold_actual_1stPC = zscore(np.dot(bold_actual - pca.mean_, pca.components_.T))
 
     plt.plot(bold_predicted_1stPC, label='Predicted bold 1st PC')
@@ -296,6 +298,18 @@ def plot_first_pc_bold_predicted_vs_actual(path_predicted, path_actual, save_pat
     cont2 = Rectangle((0, 0), 1, 1, fc="green")
     plt.legend([cont1, cont2], ['Temporal lobe', 'Heschl gyrus'])
     plt.gcf().savefig(save_path + '_glassbrain.svg')
+    plt.close()
+
+    pca = PCA(n_components=50)
+    pca.fit(bold_predicted)
+
+    plt.plot(pca.explained_variance_ratio_)
+    # plt.plot(pca.singular_values_, label='Singular values')
+    plt.legend()
+    plt.xlabel('Principal component')
+    plt.ylabel('Explained variance ratio')
+    plt.savefig(save_path + '_explainedvariance.svg')
+    #    plt.show()
     plt.close()
 
 
@@ -707,11 +721,11 @@ if __name__=='__main__':
 #                   OUTPUT_BASE+'temporal_lobe_mask/lagging0to-15.3_envelope80/',
                   OUTPUT_BASE+'temporal_lobe_mask/lagging0to-15envelopezband/',
                    ]
-    subjects = ['10']
-    conditions = ['CS','N4','S2']
+    subjects = ['09']
+    # conditions = ['CS','N4','S2']
     runs = ["02","03","04","05","06","07"]
 #    subjects = ['10']
-#     conditions = ['S2']
+    conditions = ['N4']
 #     runs = ["02"]
     do_scores = False
     do_bold_predicted_vs_actual = False
@@ -744,26 +758,18 @@ if __name__=='__main__':
                     # arg_highscore = get_arg_highscore(scores_path)
                     arg_highscore = get_total_arg_highscore(scores_path)
                 if do_bold_predicted_vs_actual:
-                    # bold_predicted = bids_str + 'boldprediction.nii.gz'
                     bold_save = bids_str + 'boldprediction.svg'
                     mask_path = bids_str + 'masks.pkl'
-#                    bold_actual = '/data2/azubaidi/ForrestGumpHearingLoss/BIDS_ForrGump/'\
-#                        +f'derivatives/fmriprep/sub-{sub}/ses-{acq}/func/sub-{sub}_ses-{acq}'\
-#                        +f'_task-aomovie_acq-{acq}_run-2_space-MNI152NLin2009cAsym_res-'\
-#                        +'2_desc-preproc_bold.nii.gz'
+                    # bold_predicted = bids_str + 'boldprediction.nii.gz'
 #                     bold_actual = bids_str + 'boldpreprocessed.nii.gz'
                     bold_predicted = acq_dir + f'predicted_bold/sub-{sub}_task-aomovie_acq-{acq}_desc-boldpredicted'+'{0}.pkl'
                     bold_actual = acq_dir + f'preprocessed_bold/sub-{sub}_task-aomovie_acq-{acq}_desc-boldpreprocessed'+'{0}.pkl'
                     plot_highest_score_bold_predicted_vs_actual(bold_predicted,bold_actual,
                                                                 arg_highscore,bold_save,mask_path)
                 if do_timeseries_first_pc:
-                    # bold_predicted = bids_str + 'boldprediction.nii.gz'
                     bold_save = bids_str + '1stPC.svg'
                     mask_path = bids_str + 'masks.pkl'
-#                    bold_actual = '/data2/azubaidi/ForrestGumpHearingLoss/BIDS_ForrGump/'\
-#                        +f'derivatives/fmriprep/sub-{sub}/ses-{acq}/func/sub-{sub}_ses-{acq}'\
-#                        +f'_task-aomovie_acq-{acq}_run-2_space-MNI152NLin2009cAsym_res-'\
-#                        +'2_desc-preproc_bold.nii.gz'
+                    # bold_predicted = bids_str + 'boldprediction.nii.gz'
 #                     bold_actual = bids_str + 'boldpreprocessed.nii.gz'
                     bold_predicted = acq_dir + f'predicted_bold/sub-{sub}_task-aomovie_acq-{acq}_desc-boldpredicted'+'{0}.pkl'
                     bold_actual = acq_dir + f'preprocessed_bold/sub-{sub}_task-aomovie_acq-{acq}_desc-boldpreprocessed'+'{0}.pkl'
