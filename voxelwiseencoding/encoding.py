@@ -26,6 +26,15 @@ def product_moment_corr(x, y):
     y = StandardScaler().fit_transform(y)
     n = x.shape[0]
     r = (1/(n-1)) * (x*y).sum(axis=0)
+    # From scipy.stats.pearsonr:
+    # As explained in the docstring, the p-value can be computed as
+    #     p = 2*dist.cdf(-abs(r))
+    # where dist is the beta distribution on [-1, 1] with shape parameters
+    # a = b = n/2 - 1.  `special.btdtr` is the CDF for the beta distribution
+    # on [0, 1].  To use it, we make the transformation  x = (r + 1)/2; the
+    # shape parameters do not change.  Then -abs(r) used in `cdf(-abs(r))`
+    # becomes x = (-abs(r) + 1)/2 = 0.5*(1 - abs(r)).  (r is cast to float64
+    # to avoid a TypeError raised by btdtr when r is higher precision.)
     ab = n / 2 - 1
     prob = 2 * btdtr(ab, ab, 0.5 * (1 - abs(np.float64(r))))
     return r, prob
@@ -35,14 +44,16 @@ def get_model_plus_scores(X, y, estimator=None, cv=None, scorer=None,
                           voxel_selection=False, validate=True, 
                           run_start_indices=None, model_dump_path=None,
                           **kwargs):
-    """ Returns multiple estimator trained in a cross-validation on n_splits of
+    """ Returns multiple estimator trained in a cross-validation of
         the data and scores on the left-out folds.
 
     Parameters
         X : ndarray of shape (samples, features)
         y : ndarray of shape (samples, targets)
-        estimator : None or estimator object that implements fit and predict
-                    if None, uses RidgeCV per default
+        estimator : None or estimator object that implements fit and predict.
+                    If None, uses RidgeCV per default.
+                    Can also be one of {'RidgeCV', 'Ridge', 'LinearRegression', 'MultiTaskLassoCV', 'SGDRegressor'}
+                    to use the corresponding sklearn estimator. Arguments may be passed to the estimator via **kwargs.
         cv : int, None, 'leave-one-run-out', or a cross-validation object that
              implements a split method, default is None, optional.
              int specifies the number of cross-validation splits of a KFold cross validation.
@@ -50,7 +61,7 @@ def get_model_plus_scores(X, y, estimator=None, cv=None, scorer=None,
              'leave-one-run-out' specifies leave-one-run-out cross-validation.
              A scikit-learn-like cross-validation object needs to implement a
              split method for X and y.
-        scorer : None or any sci-kit learn compatible scoring function, optional
+        scorer : None or any scoring function that returns (score, pvalue), optional
                  default uses product moment correlation
         voxel_selection : bool, optional, default False
                           Whether to only use voxels with variance larger than zero.
@@ -134,7 +145,7 @@ def get_model_plus_scores(X, y, estimator=None, cv=None, scorer=None,
             cv_fold_idx += 1
         score_list = np.concatenate(score_list, axis=-1)
         pval_list = np.concatenate(pval_list, axis=-1)
-        bold_prediction = np.concatenate(bold_prediction, axis=0)
+        # bold_prediction = np.concatenate(bold_prediction, axis=0)
     else:
 #        models = estimator.fit(X, y)
         estimator.fit(X, y)

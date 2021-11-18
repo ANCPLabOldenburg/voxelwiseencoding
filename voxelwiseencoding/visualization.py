@@ -163,59 +163,134 @@ def gather_files_and_plot_avg_scores():
                 if not save_path:
                     save_path = bids_str + 'scoresall.png'
         plot_avg_score_all_conditions_plus_diffs(scores_paths,mask_paths,save_path)
-    
+
+
 def get_arg_highscore(scores_path,fold=0):
     import nibabel as nib
     n1_img = nib.load(scores_path)
-    data = n1_img.dataobj[...,fold] # Only use first cv fold
+    data = n1_img.dataobj[...,fold]
     arg_highscore = np.argmax(data)
     return np.unravel_index(arg_highscore,data.shape)
-    
-def product_moment_corr(x,y):
-    '''Product-moment correlation for two ndarrays x, y'''
-    n = x.shape[0]
-    r = (1/(n-1))*(x*y).sum(axis=0)
-    return r
 
-def plot_highest_score_bold_predicted_vs_actual(path_predicted,path_actual,arg_highscore,save_path):
+
+def get_total_arg_highscore(scores_path):
+    import nibabel as nib
+    n1_img = nib.load(scores_path)
+    data = n1_img.dataobj
+    arg_highscore = np.argmax(data)
+    return np.unravel_index(arg_highscore,data.shape)
+
+
+from encoding import product_moment_corr
+# def product_moment_corr(x,y):
+#     """ Product-moment correlation for two ndarrays x, y """
+#     from sklearn.preprocessing import StandardScaler
+#     x = StandardScaler().fit_transform(x)
+#     y = StandardScaler().fit_transform(y)
+#     n = x.shape[0]
+#     r = (1/(n-1))*(x*y).sum(axis=0)
+#     return r
+
+
+def plot_highest_score_bold_predicted_vs_actual(path_predicted,path_actual,arg_highscore,save_path,mask_path):
     print('Plotting',save_path)
     import nibabel as nib
-    import matplotlib.pyplot as plt
     from scipy.stats import zscore
-    
-    bold_predicted = nib.load(path_predicted)
-    bold = []
-    for i in range(6):
-        bold.append(joblib.load(path_actual.format(i)))
+    from nilearn.masking import unmask
+
+    x, y, z, fold = arg_highscore
+    # bold = []
+    # for i in range(6):
+    #     # bold.append(joblib.load(path_actual.format(i))[:-1])
+    #     bold.append(joblib.load(path_actual.format(i)))
+    # bold = np.concatenate(bold) # (time, voxel)
+    bold = joblib.load(path_actual.format(fold))
+    masks = joblib.load(mask_path)
+    bold = unmask(bold, masks[fold])
+
+    # bold_predicted = nib.load(path_predicted)
+    # bold_predicted = []
+    # for i in range(6):
+    #     # bold_actual.append(joblib.load(path_predicted.format(i))[:-1])
+    #     bold_predicted.append(joblib.load(path_predicted.format(i)))
+    # bold_predicted = np.concatenate(bold_predicted)  # (time, voxel)
+    bold_predicted = joblib.load(path_predicted.format(fold))
+    bold_predicted = unmask(bold_predicted, masks[fold])
     #print(bold_predicted.shape)
     #print(bold.shape)
-    # bold.shape[3] == 1038
-    # for some reason loading a 1.4GB file with get_fdata() takes forever and
-    # uses up hundreds of GB ?!?
-#    start = 50
-#    shortest = 900 #min(bold.shape[3],bold_predicted.shape[3])
-#    offset = -11 # 11 * 0.85s = 9.35s = 5.1s lag + 4.25s offset
-#    start = 0
-    shortest = 1000
-#    offset = 0
-    x,y,z = arg_highscore
-    bold_predicted_high = bold_predicted.dataobj[x,y,z,:shortest]
-#    bold_predicted_high = bold_predicted.dataobj[x,y,z,start+offset:start+offset+shortest]
+    bold_predicted_high = bold_predicted.dataobj[x,y,z]
     bold_predicted_high = zscore(bold_predicted_high)
-    bold_high = bold.dataobj[x,y,z,:shortest]
-#    bold_high = bold.dataobj[x,y,z,start:start+shortest]
+    bold_high = bold.dataobj[x,y,z]
     bold_high = zscore(bold_high)
     plt.plot(bold_predicted_high,label='Predicted bold')
     plt.plot(bold_high,label='Actual bold')
     plt.legend()
     plt.xlabel('Volume')
     plt.ylabel('Zscore')
-    plt.title('Predicted vs actual bold, voxel %s, r=%.4f' % (str(arg_highscore),\
-              product_moment_corr(bold_predicted_high,bold_high)))
+    r, prob = product_moment_corr(bold_predicted_high.reshape(-1, 1), bold_high.reshape(-1, 1))
+    plt.title('Predicted vs actual bold, voxel %s, r=%.4f, p=%.4f' % (str(arg_highscore), r, prob))
     plt.savefig(save_path)
 #    plt.show()
     plt.close()
     #print(product_moment_corr(bold_predicted_high,bold_high))
+
+
+def plot_first_pc_bold_predicted_vs_actual(path_predicted, path_actual, save_path):
+    print('Plotting', save_path)
+    import nibabel as nib
+    from sklearn.decomposition import PCA
+    from scipy.stats import zscore
+
+    bold_actual = []
+    for i in range(6):
+        # bold_actual.append(joblib.load(path_actual.format(i))[:-1])
+        bold_actual.append(joblib.load(path_actual.format(i)))
+    bold_actual = np.concatenate(bold_actual)  # (time, voxel)
+    # print(bold.shape)
+    bold_predicted = []
+    for i in range(6):
+        # bold_actual.append(joblib.load(path_predicted.format(i))[:-1])
+        bold_predicted.append(joblib.load(path_predicted.format(i)))
+    bold_predicted = np.concatenate(bold_predicted)  # (time, voxel)
+    # print(bold_predicted.shape)
+
+    pca = PCA(n_components=1)
+    bold_predicted_1stPC = zscore(pca.fit_transform(bold_predicted))
+    bold_actual_1stPC = zscore(np.dot(bold_actual - pca.mean_, pca.components_.T))
+
+    plt.plot(bold_predicted_1stPC, label='Predicted bold 1st PC')
+    plt.plot(bold_actual_1stPC, label='Actual bold 1st PC')
+    plt.legend()
+    plt.xlabel('Volume')
+    plt.ylabel('Zscore')
+    r, prob = product_moment_corr(bold_predicted_1stPC, bold_actual_1stPC)
+    plt.title('r=%.4f, p=%.4f, explained variance ratio=%.4f' % (r, prob, pca.explained_variance_ratio_))
+    plt.savefig(save_path)
+    #    plt.show()
+    plt.close()
+
+    from nilearn import plotting
+    from nilearn.masking import unmask
+    temporal_lobe_mask = "/data2/azubaidi/ForrestGumpHearingLoss/BIDS_ForrGump/" \
+                         + "derivatives/fmriprep/ROIs/TemporalLobeMasks/mni_Temporal_mask_ero5_bin.nii.gz"
+    heschl_mask = "/data2/azubaidi/ForrestGumpHearingLoss/BIDS_ForrGump/" \
+                  + "derivatives/fmriprep/ROIs/HeschisGyrus/mni_Heschl_ROI.nii.gz"
+    first_pc = unmask(np.squeeze(pca.components_), mask[0])
+
+    thresh = 0.0  # 0.05
+    display = plotting.plot_glass_brain(first_pc, threshold=thresh, colorbar=True,
+                                        display_mode='lzry', plot_abs=False)
+    display.add_contours(temporal_lobe_mask, filled=False, colors='m')
+    display.add_contours(heschl_mask, filled=False, colors='g')
+    # display.add_markers([markers], marker_color='w', marker_size=50)
+    # proxy artist trick to make legend
+    from matplotlib.patches import Rectangle
+    cont1 = Rectangle((0, 0), 1, 1, fc="magenta")
+    cont2 = Rectangle((0, 0), 1, 1, fc="green")
+    plt.legend([cont1, cont2], ['Temporal lobe', 'Heschl gyrus'])
+    plt.gcf().savefig(save_path + '_glassbrain.svg')
+    plt.close()
+
 
 def plot_original_bold_spectrograms():
     import nibabel as nib
@@ -440,6 +515,36 @@ def plot_max_coef_diff(max_coefs,max_coefs_CS,save_path):
     diff = max_coefs - max_coefs_CS
     plot_max_coefs(diff,save_path)
 
+
+def plot_coef_first_pc(max_coefs, save_path):
+    print('Plotting', save_path)
+    import matplotlib.pyplot as plt
+    # avg_max_coefs = np.array(max_coefs).mean(axis=0)
+    for fold in range(6):
+        n_lag_bins = max_coefs[fold].shape[0]
+        # n_lag_bins = avg_max_coefs.shape[0]
+        #    lagging_offset = 4.25
+        lagging_offset = 0.0
+        #    lagging_offset = 4.0
+        x_ticks = (np.arange(n_lag_bins) * 0.025) + lagging_offset
+        #    x_stride = 20
+        x_stride = 80
+        plt.plot(max_coefs[fold])
+        # plt.plot(avg_max_coefs)
+        #    plt.imshow(max_coefs.T,aspect='auto',origin='lower')
+        #    plt.gca().set_yticks(np.arange(0,nmel,nmel_stride))
+        #    plt.gca().set_yticklabels(mel_frequencies[::nmel_stride])
+        plt.gca().set_xticks(np.arange(3, n_lag_bins, x_stride))
+        plt.gca().set_xticklabels(["%.1f" % tick for tick in x_ticks[3::x_stride]])
+        #    cbar = plt.colorbar()
+        #    cbar.set_label('Ridge coefficient', rotation=270)
+        plt.xlabel('Time lag (s)')
+        #    plt.ylabel('Mel frequency (Hz)')
+        plt.ylabel('Ridge coefficient')
+        plt.savefig(save_path.format(fold) + '.svg')
+        # plt.savefig(save_path + '_avg.svg')
+        plt.close()
+
 def plot_mel_spectrogram(spec_path,save_path):
     print('Plotting',save_path)
     import matplotlib.pyplot as plt
@@ -588,19 +693,22 @@ if __name__=='__main__':
 #                   OUTPUT_BASE+'temporal_lobe_mask/lagging0to-15.3_envelope_linearregression/',
 #                   OUTPUT_BASE+'temporal_lobe_mask/lagging0to-15.3_envelope_lassocv/',
 #                   OUTPUT_BASE+'temporal_lobe_mask/lagging0to-15.3_envelope_SAGsolver/'
-                  OUTPUT_BASE+'temporal_lobe_mask/lagging0to-15.3_envelope80/',
+#                   OUTPUT_BASE+'temporal_lobe_mask/lagging0to-15.3_envelope80/',
+                  OUTPUT_BASE+'temporal_lobe_mask/lagging0to-15envelopezband/',
                    ]
     subjects = ['10']
-    # conditions = ['CS','N4','S2']
+    conditions = ['CS','N4','S2']
     runs = ["02","03","04","05","06","07"]
 #    subjects = ['10']
-    conditions = ['S2']
+#     conditions = ['S2']
 #     runs = ["02"]
-    do_scores = True
+    do_scores = False
     do_bold_predicted_vs_actual = False
-    do_max_coefs = True
-    do_avg_scores_per_fold = True
-    do_lagged_stim = True
+    do_max_coefs = False
+    do_timeseries_first_pc = True
+    do_coef_first_pc = False
+    do_avg_scores_per_fold = False
+    do_lagged_stim = False
     do_orig_stim = False
     do_lagged_stim_one_column = False
     for output_dir in output_dirs:
@@ -621,25 +729,41 @@ if __name__=='__main__':
                     scores_save = bids_str + 'scores'
                     scores_glassbrain_save = bids_str + 'scoresglassbrain'
                     plot_scores(scores_path,scores_save,scores_glassbrain_save,mask_path)
-                if do_bold_predicted_vs_actual or do_max_coefs:
-                    arg_highscore = get_arg_highscore(scores_path)
+                if do_bold_predicted_vs_actual or do_max_coefs or do_coef_first_pc:
+                    # arg_highscore = get_arg_highscore(scores_path)
+                    arg_highscore = get_total_arg_highscore(scores_path)
                 if do_bold_predicted_vs_actual:
-                    bold_predicted = bids_str + 'boldprediction.nii.gz'
+                    # bold_predicted = bids_str + 'boldprediction.nii.gz'
                     bold_save = bids_str + 'boldprediction.svg'
+                    mask_path = bids_str + 'masks.pkl'
 #                    bold_actual = '/data2/azubaidi/ForrestGumpHearingLoss/BIDS_ForrGump/'\
 #                        +f'derivatives/fmriprep/sub-{sub}/ses-{acq}/func/sub-{sub}_ses-{acq}'\
 #                        +f'_task-aomovie_acq-{acq}_run-2_space-MNI152NLin2009cAsym_res-'\
 #                        +'2_desc-preproc_bold.nii.gz'
 #                     bold_actual = bids_str + 'boldpreprocessed.nii.gz'
-                    bold_actual = acq_dir + f'preprocessed_bold/sub-{sub}_task-aomovie_acq-{acq}_desc-boldpreprocessed{0}.pkl'
+                    bold_predicted = acq_dir + f'predicted_bold/sub-{sub}_task-aomovie_acq-{acq}_desc-boldpredicted'+'{0}.pkl'
+                    bold_actual = acq_dir + f'preprocessed_bold/sub-{sub}_task-aomovie_acq-{acq}_desc-boldpreprocessed'+'{0}.pkl'
                     plot_highest_score_bold_predicted_vs_actual(bold_predicted,bold_actual,
-                                                                arg_highscore,bold_save)
+                                                                arg_highscore,bold_save,mask_path)
+                if do_timeseries_first_pc:
+                    # bold_predicted = bids_str + 'boldprediction.nii.gz'
+                    bold_save = bids_str + '1stPC.svg'
+                    # mask_path = bids_str + 'masks.pkl'
+#                    bold_actual = '/data2/azubaidi/ForrestGumpHearingLoss/BIDS_ForrGump/'\
+#                        +f'derivatives/fmriprep/sub-{sub}/ses-{acq}/func/sub-{sub}_ses-{acq}'\
+#                        +f'_task-aomovie_acq-{acq}_run-2_space-MNI152NLin2009cAsym_res-'\
+#                        +'2_desc-preproc_bold.nii.gz'
+#                     bold_actual = bids_str + 'boldpreprocessed.nii.gz'
+                    bold_predicted = acq_dir + f'predicted_bold/sub-{sub}_task-aomovie_acq-{acq}_desc-boldpredicted'+'{0}.pkl'
+                    bold_actual = acq_dir + f'preprocessed_bold/sub-{sub}_task-aomovie_acq-{acq}_desc-boldpreprocessed'+'{0}.pkl'
+                    plot_first_pc_bold_predicted_vs_actual(bold_predicted,bold_actual,bold_save)
                 if do_max_coefs:
                     ridges_path = bids_str + 'ridgesfold{0}.pkl'
                     mask_path = bids_str + 'masks.pkl'
                     max_coefs_save = bids_str + 'maxcoefsfold{0}'
                     # max_coefs_diff_save = bids_str + 'maxcoefsdiff.svg'
-                    max_coefs = get_max_coefs(ridges_path,mask_path,arg_highscore,scores_path=scores_path)
+                    # max_coefs = get_max_coefs(ridges_path,mask_path,arg_highscore,scores_path=scores_path)
+                    max_coefs = get_max_coefs(ridges_path,mask_path,arg_highscore,scores_path=None)
                     plot_max_coefs(max_coefs,max_coefs_save)
                     # if acq=='CS':
                     #     max_coefs_CS = max_coefs
@@ -647,6 +771,12 @@ if __name__=='__main__':
                     # elif max_coefs_CS is not None:
                     #     max_coefs = get_max_coefs(ridges_path,mask_path,arg_highscore_CS)
                     #     plot_max_coef_diff(max_coefs,max_coefs_CS,max_coefs_diff_save)
+                if do_coef_first_pc:
+                    ridges_path = bids_str + 'ridgesfold{0}.pkl'
+                    mask_path = bids_str + 'masks.pkl'
+                    first_pc_save = bids_str + 'coeffirstpc'
+                    max_coefs = get_max_coefs(ridges_path,mask_path,arg_highscore,scores_path=None)
+                    plot_max_coefs(max_coefs,first_pc_save)
                 if do_avg_scores_per_fold:
                     mask_path = bids_str + 'masks.pkl'
                     r2_save = bids_str + 'scoresavg.svg'

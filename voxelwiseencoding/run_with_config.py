@@ -47,6 +47,11 @@ def run_analysis(subject,acq,kwargs):
             os.makedirs(preprocessed_bold_dir)
         args['save_preprocessed_bold_path'] = os.path.join(preprocessed_bold_dir, filename_output+'_desc-boldpreprocessed{0}.pkl')
 #        args['save_preprocessed_bold_path'] = os.path.join(output_dir, filename_output+'_desc-boldpreprocessed.nii.gz')
+
+    predicted_bold_dir = os.path.join(output_dir, 'predicted_bold/')
+    if not os.path.exists(predicted_bold_dir):
+        os.makedirs(predicted_bold_dir)
+    predicted_bold_path = os.path.join(predicted_bold_dir, filename_output + '_desc-boldpredicted{0}.pkl')
     # run analysis
     scores, masks, bold_prediction, train_indices, test_indices, run_start_indices, pval_list = \
         run_model_for_subject(bold_files, bold_jsons, stim_tsvs, stim_jsons, **args)
@@ -62,9 +67,11 @@ def run_analysis(subject,acq,kwargs):
 
     pvals = concat_imgs([unmask(pval, mask) for pval, mask in zip(pval_list.T, masks)])
     save(pvals, os.path.join(output_dir, '{0}_desc-pvals.nii.gz'.format(filename_output)))
-    
-    bold_prediction_nifti = unmask(bold_prediction, masks[0])
-    save(bold_prediction_nifti, os.path.join(output_dir, '{0}_desc-boldprediction.nii.gz'.format(filename_output)))
+
+    for i, bold_predicted in enumerate(bold_prediction):
+        joblib.dump(bold_predicted, predicted_bold_path.format(i))
+    # bold_prediction_nifti = unmask(bold_prediction, masks[0])
+    # save(bold_prediction_nifti, os.path.join(output_dir, '{0}_desc-boldprediction.nii.gz'.format(filename_output)))
     
     # also save config file that was used to perform analysis in the output folder
     config_filename_output = os.path.join(output_dir, '{0}_{1}'.format(filename_output,CONFIG_FILENAME))
