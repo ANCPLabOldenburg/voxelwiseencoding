@@ -261,19 +261,19 @@ def plot_first_pc_bold_predicted_vs_actual(path_predicted, path_actual, save_pat
     # print(bold_predicted.shape)
 
     pca = PCA(n_components=1)
-    bold_predicted_1stPC = zscore(pca.fit_transform(bold_predicted))
-    # bold_actual_1stPC = zscore(pca.fit_transform(bold_actual))
-    # bold_actual_1stPC = zscore(np.dot(bold_actual - bold_actual.mean(axis=0), pca.components_.T))
-    bold_actual_1stPC = zscore(np.dot(bold_actual - pca.mean_, pca.components_.T))
+    bold_predicted_first_pc = zscore(pca.fit_transform(bold_predicted))
+    # bold_actual_first_pc = zscore(pca.fit_transform(bold_actual))
+    # bold_actual_first_pc = zscore(np.dot(bold_actual - bold_actual.mean(axis=0), pca.components_.T))
+    bold_actual_first_pc = zscore(np.dot(bold_actual - pca.mean_, pca.components_.T))
 
-    plt.plot(bold_predicted_1stPC, label='Predicted bold 1st PC')
-    plt.plot(bold_actual_1stPC, label='Actual bold 1st PC')
+    plt.plot(bold_predicted_first_pc, label='Predicted bold 1st PC')
+    plt.plot(bold_actual_first_pc, label='Actual bold 1st PC')
     plt.legend()
     plt.xlabel('Volume')
     plt.ylabel('Zscore')
-    r, prob = product_moment_corr(bold_predicted_1stPC, bold_actual_1stPC)
+    r, prob = product_moment_corr(bold_predicted_first_pc, bold_actual_first_pc)
     plt.title('r=%.4f, p=%.4f, explained variance ratio=%.4f' % (r, prob, pca.explained_variance_ratio_))
-    plt.savefig(save_path)
+    plt.savefig(save_path + '.svg')
     #    plt.show()
     plt.close()
 
@@ -297,18 +297,19 @@ def plot_first_pc_bold_predicted_vs_actual(path_predicted, path_actual, save_pat
     cont1 = Rectangle((0, 0), 1, 1, fc="magenta")
     cont2 = Rectangle((0, 0), 1, 1, fc="green")
     plt.legend([cont1, cont2], ['Temporal lobe', 'Heschl gyrus'])
-    plt.gcf().savefig(save_path + '_glassbrain.svg')
+    plt.gcf().savefig(save_path + 'glassbrain.svg')
     plt.close()
 
-    pca = PCA(n_components=50)
+    n_components = 20
+    pca = PCA(n_components=n_components)
     pca.fit(bold_predicted)
 
-    plt.plot(pca.explained_variance_ratio_)
+    plt.bar(np.arange(n_components), pca.explained_variance_ratio_)
     # plt.plot(pca.singular_values_, label='Singular values')
-    plt.legend()
+    # plt.legend()
     plt.xlabel('Principal component')
     plt.ylabel('Explained variance ratio')
-    plt.savefig(save_path + '_explainedvariance.svg')
+    plt.savefig(save_path + 'explainedvariance.svg')
     #    plt.show()
     plt.close()
 
@@ -440,7 +441,7 @@ def get_max_coefs(ridges_path,mask_path,arg_highscore,scores_path=None):
         #print(coefs.shape)
         if scores_path is not None:
             arg_highscore = get_arg_highscore(scores_path, fold=fold)
-        max_coefs = coefs._dataobj[arg_highscore]
+        max_coefs = coefs._dataobj[arg_highscore[:3]]
         results.append(max_coefs.reshape((-1,nmel)))
 #    nmel = 48
     return results
@@ -450,12 +451,12 @@ def plot_max_coefs(max_coefs,save_path):
     print('Plotting',save_path)
     import matplotlib.pyplot as plt
 #    nmel = 48
-    nmel_stride = 4
-    mel_frequencies = [100, 162, 224, 286, 348, 410, 472, 534, 596, 658, 721, 
-                       783, 845, 907, 969, 1032, 1100, 1173, 1251, 1333, 1421,
-                       1515, 1616, 1722, 1836, 1957, 2087, 2225, 2372, 2528, 
-                       2696, 2874, 3064, 3266, 3482, 3712, 3957, 4219, 4497, 
-                       4795, 5112, 5449, 5809, 6193, 6603, 7039, 7504, 8000]
+#     nmel_stride = 4
+    # mel_frequencies = [100, 162, 224, 286, 348, 410, 472, 534, 596, 658, 721,
+    #                    783, 845, 907, 969, 1032, 1100, 1173, 1251, 1333, 1421,
+    #                    1515, 1616, 1722, 1836, 1957, 2087, 2225, 2372, 2528,
+    #                    2696, 2874, 3064, 3266, 3482, 3712, 3957, 4219, 4497,
+    #                    4795, 5112, 5449, 5809, 6193, 6603, 7039, 7504, 8000]
     # avg_max_coefs = np.array(max_coefs).mean(axis=0)
     for fold in range(len(max_coefs)):
         n_lag_bins = max_coefs[fold].shape[0]
@@ -478,6 +479,7 @@ def plot_max_coefs(max_coefs,save_path):
         plt.xlabel('Time lag (s)')
     #    plt.ylabel('Mel frequency (Hz)')
         plt.ylabel('Ridge coefficient')
+        plt.tight_layout()
         plt.savefig(save_path.format(fold) + '.svg')
         # plt.savefig(save_path + '_avg.svg')
         plt.close()
@@ -541,34 +543,40 @@ def plot_max_coef_diff(max_coefs,max_coefs_CS,save_path):
     plot_max_coefs(diff,save_path)
 
 
-def plot_coef_first_pc(max_coefs, save_path):
+def plot_coef_first_pc(save_path, ridges_path):
     print('Plotting', save_path)
-    import matplotlib.pyplot as plt
-    # avg_max_coefs = np.array(max_coefs).mean(axis=0)
-    for fold in range(len(max_coefs)):
-        n_lag_bins = max_coefs[fold].shape[0]
-        # n_lag_bins = avg_max_coefs.shape[0]
-        #    lagging_offset = 4.25
-        lagging_offset = 0.0
-        #    lagging_offset = 4.0
-        x_ticks = (np.arange(n_lag_bins) * 0.025) + lagging_offset
-        #    x_stride = 20
-        x_stride = 80
-        plt.plot(max_coefs[fold])
-        # plt.plot(avg_max_coefs)
-        #    plt.imshow(max_coefs.T,aspect='auto',origin='lower')
-        #    plt.gca().set_yticks(np.arange(0,nmel,nmel_stride))
-        #    plt.gca().set_yticklabels(mel_frequencies[::nmel_stride])
-        plt.gca().set_xticks(np.arange(3, n_lag_bins, x_stride))
-        plt.gca().set_xticklabels(["%.1f" % tick for tick in x_ticks[3::x_stride]])
-        #    cbar = plt.colorbar()
-        #    cbar.set_label('Ridge coefficient', rotation=270)
-        plt.xlabel('Time lag (s)')
-        #    plt.ylabel('Mel frequency (Hz)')
-        plt.ylabel('Ridge coefficient')
-        plt.savefig(save_path.format(fold) + '.svg')
-        # plt.savefig(save_path + '_avg.svg')
-        plt.close()
+    import joblib
+    from sklearn.decomposition import PCA
+    n_folds = 0
+    coefficients = []
+    for fold in range(6):
+        filename = ridges_path.format(fold)
+        if not os.path.exists(filename):
+            continue
+        ridges = joblib.load(filename)
+        coefficients.append(ridges.coef_.T)
+        n_folds += 1
+    coefficients = np.stack(coefficients, axis=0)
+    coefficients = np.mean(coefficients, axis=0)
+
+    pca = PCA(n_components=1)
+    coefficients_first_pc = pca.fit_transform(coefficients)
+    # coefficients_first_pc = coefficients_first_pc.reshape(n_folds, -1).mean(axis=0)
+
+    n_lag_bins = coefficients_first_pc.shape[0]
+    #    lagging_offset = 4.25
+    lagging_offset = 0.0
+    #    lagging_offset = 4.0
+    x_ticks = (np.arange(n_lag_bins) * 0.025) + lagging_offset
+    #    x_stride = 20
+    x_stride = 80
+    plt.plot(coefficients_first_pc)
+    plt.gca().set_xticks(np.arange(3, n_lag_bins, x_stride))
+    plt.gca().set_xticklabels(["%.1f" % tick for tick in x_ticks[3::x_stride]])
+    plt.xlabel('Time lag (s)')
+    plt.ylabel('First PC of ridge coefficient')
+    plt.savefig(save_path + '.svg')
+    plt.close()
 
 def plot_mel_spectrogram(spec_path,save_path):
     print('Plotting',save_path)
@@ -722,20 +730,20 @@ if __name__=='__main__':
                   OUTPUT_BASE+'temporal_lobe_mask/lagging0to-15envelopezband/',
                    ]
     subjects = ['09']
-    # conditions = ['CS','N4','S2']
+    # conditions = ['N4']
+    conditions = ['CS','N4','S2']
     runs = ["02","03","04","05","06","07"]
 #    subjects = ['10']
-    conditions = ['N4']
 #     runs = ["02"]
-    do_scores = False
-    do_bold_predicted_vs_actual = False
-    do_max_coefs = False
+    do_scores = True
+    do_bold_predicted_vs_actual = True
+    do_max_coefs = True
     do_timeseries_first_pc = True
-    do_coef_first_pc = False
-    do_avg_scores_per_fold = False
-    do_lagged_stim = False
+    do_coef_first_pc = True
+    do_avg_scores_per_fold = True
+    do_lagged_stim = True
     do_orig_stim = False
-    do_lagged_stim_one_column = False
+    do_lagged_stim_one_column = True
     for output_dir in output_dirs:
         for sub in subjects:
             sub_dir = os.path.join(output_dir,f'sub-{sub}/')
@@ -767,7 +775,7 @@ if __name__=='__main__':
                     plot_highest_score_bold_predicted_vs_actual(bold_predicted,bold_actual,
                                                                 arg_highscore,bold_save,mask_path)
                 if do_timeseries_first_pc:
-                    bold_save = bids_str + '1stPC.svg'
+                    bold_save = bids_str + '1stPC'
                     mask_path = bids_str + 'masks.pkl'
                     # bold_predicted = bids_str + 'boldprediction.nii.gz'
 #                     bold_actual = bids_str + 'boldpreprocessed.nii.gz'
@@ -790,10 +798,8 @@ if __name__=='__main__':
                     #     plot_max_coef_diff(max_coefs,max_coefs_CS,max_coefs_diff_save)
                 if do_coef_first_pc:
                     ridges_path = bids_str + 'ridgesfold{0}.pkl'
-                    mask_path = bids_str + 'masks.pkl'
                     first_pc_save = bids_str + 'coeffirstpc'
-                    max_coefs = get_max_coefs(ridges_path,mask_path,arg_highscore,scores_path=None)
-                    plot_max_coefs(max_coefs,first_pc_save)
+                    plot_coef_first_pc(first_pc_save, ridges_path)
                 if do_avg_scores_per_fold:
                     mask_path = bids_str + 'masks.pkl'
                     r2_save = bids_str + 'scoresavg.svg'
