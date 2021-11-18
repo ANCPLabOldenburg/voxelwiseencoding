@@ -235,22 +235,28 @@ def plot_highest_score_bold_predicted_vs_actual(path_predicted,path_actual,arg_h
     #print(product_moment_corr(bold_predicted_high,bold_high))
 
 
-def plot_first_pc_bold_predicted_vs_actual(path_predicted, path_actual, save_path):
+def plot_first_pc_bold_predicted_vs_actual(path_predicted, path_actual, save_path, mask_path):
     print('Plotting', save_path)
     import nibabel as nib
     from sklearn.decomposition import PCA
     from scipy.stats import zscore
 
     bold_actual = []
-    for i in range(6):
+    for fold in range(6):
+        filename = path_actual.format(fold)
+        if not os.path.exists(filename):
+            continue
         # bold_actual.append(joblib.load(path_actual.format(i))[:-1])
-        bold_actual.append(joblib.load(path_actual.format(i)))
+        bold_actual.append(joblib.load(filename))
     bold_actual = np.concatenate(bold_actual)  # (time, voxel)
     # print(bold.shape)
     bold_predicted = []
-    for i in range(6):
+    for fold in range(6):
+        filename = path_predicted.format(fold)
+        if not os.path.exists(filename):
+            continue
         # bold_actual.append(joblib.load(path_predicted.format(i))[:-1])
-        bold_predicted.append(joblib.load(path_predicted.format(i)))
+        bold_predicted.append(joblib.load(filename))
     bold_predicted = np.concatenate(bold_predicted)  # (time, voxel)
     # print(bold_predicted.shape)
 
@@ -275,6 +281,7 @@ def plot_first_pc_bold_predicted_vs_actual(path_predicted, path_actual, save_pat
                          + "derivatives/fmriprep/ROIs/TemporalLobeMasks/mni_Temporal_mask_ero5_bin.nii.gz"
     heschl_mask = "/data2/azubaidi/ForrestGumpHearingLoss/BIDS_ForrGump/" \
                   + "derivatives/fmriprep/ROIs/HeschisGyrus/mni_Heschl_ROI.nii.gz"
+    mask = joblib.load(mask_path)
     first_pc = unmask(np.squeeze(pca.components_), mask[0])
 
     thresh = 0.0  # 0.05
@@ -410,7 +417,10 @@ def get_max_coefs(ridges_path,mask_path,arg_highscore,scores_path=None):
     mask = joblib.load(mask_path)
     results = []
     for fold in range(6):
-        ridges = joblib.load(ridges_path.format(fold))
+        filename = ridges_path.format(fold)
+        if not os.path.exists(filename):
+            continue
+        ridges = joblib.load(filename)
         coefs = unmask(ridges.coef_.T, mask[fold])
         #print(ridges.coef_.shape)
         #print(coefs.shape)
@@ -420,7 +430,8 @@ def get_max_coefs(ridges_path,mask_path,arg_highscore,scores_path=None):
         results.append(max_coefs.reshape((-1,nmel)))
 #    nmel = 48
     return results
-    
+
+
 def plot_max_coefs(max_coefs,save_path):
     print('Plotting',save_path)
     import matplotlib.pyplot as plt
@@ -432,7 +443,7 @@ def plot_max_coefs(max_coefs,save_path):
                        2696, 2874, 3064, 3266, 3482, 3712, 3957, 4219, 4497, 
                        4795, 5112, 5449, 5809, 6193, 6603, 7039, 7504, 8000]
     # avg_max_coefs = np.array(max_coefs).mean(axis=0)
-    for fold in range(6):
+    for fold in range(len(max_coefs)):
         n_lag_bins = max_coefs[fold].shape[0]
         # n_lag_bins = avg_max_coefs.shape[0]
     #    lagging_offset = 4.25
@@ -520,7 +531,7 @@ def plot_coef_first_pc(max_coefs, save_path):
     print('Plotting', save_path)
     import matplotlib.pyplot as plt
     # avg_max_coefs = np.array(max_coefs).mean(axis=0)
-    for fold in range(6):
+    for fold in range(len(max_coefs)):
         n_lag_bins = max_coefs[fold].shape[0]
         # n_lag_bins = avg_max_coefs.shape[0]
         #    lagging_offset = 4.25
@@ -748,7 +759,7 @@ if __name__=='__main__':
                 if do_timeseries_first_pc:
                     # bold_predicted = bids_str + 'boldprediction.nii.gz'
                     bold_save = bids_str + '1stPC.svg'
-                    # mask_path = bids_str + 'masks.pkl'
+                    mask_path = bids_str + 'masks.pkl'
 #                    bold_actual = '/data2/azubaidi/ForrestGumpHearingLoss/BIDS_ForrGump/'\
 #                        +f'derivatives/fmriprep/sub-{sub}/ses-{acq}/func/sub-{sub}_ses-{acq}'\
 #                        +f'_task-aomovie_acq-{acq}_run-2_space-MNI152NLin2009cAsym_res-'\
@@ -756,7 +767,7 @@ if __name__=='__main__':
 #                     bold_actual = bids_str + 'boldpreprocessed.nii.gz'
                     bold_predicted = acq_dir + f'predicted_bold/sub-{sub}_task-aomovie_acq-{acq}_desc-boldpredicted'+'{0}.pkl'
                     bold_actual = acq_dir + f'preprocessed_bold/sub-{sub}_task-aomovie_acq-{acq}_desc-boldpreprocessed'+'{0}.pkl'
-                    plot_first_pc_bold_predicted_vs_actual(bold_predicted,bold_actual,bold_save)
+                    plot_first_pc_bold_predicted_vs_actual(bold_predicted,bold_actual,bold_save,mask_path)
                 if do_max_coefs:
                     ridges_path = bids_str + 'ridgesfold{0}.pkl'
                     mask_path = bids_str + 'masks.pkl'
