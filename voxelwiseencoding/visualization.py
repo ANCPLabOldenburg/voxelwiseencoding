@@ -9,20 +9,23 @@ import os
 import numpy as np
 import joblib
 import matplotlib.pyplot as plt
+import nibabel as nib
 from nilearn.image import load_img, mean_img, coord_transform
-from nilearn.masking import apply_mask
+from nilearn.masking import apply_mask, unmask
+from encoding import product_moment_corr
 
 OUTPUT_BASE = '/data2/azubaidi/ForrestGumpHearingLoss/BIDS_ForrGump/'\
               +'derivatives/encoding_results/'
-    
+temporal_lobe_mask = "/data2/azubaidi/ForrestGumpHearingLoss/BIDS_ForrGump/" \
+                     + "derivatives/fmriprep/ROIs/TemporalLobeMasks/mni_Temporal_mask_ero5_bin.nii.gz"
+heschl_mask = "/data2/azubaidi/ForrestGumpHearingLoss/BIDS_ForrGump/" \
+              + "derivatives/fmriprep/ROIs/HeschisGyrus/mni_Heschl_ROI.nii.gz"
+
+
 def plot_scores(scores_path,save_path,glassbrain_save,mask_path):
     print('Plotting',save_path)
     from nilearn import plotting
     mask = joblib.load(mask_path)
-    temporal_lobe_mask = "/data2/azubaidi/ForrestGumpHearingLoss/BIDS_ForrGump/"\
-        + "derivatives/fmriprep/ROIs/TemporalLobeMasks/mni_Temporal_mask_ero5_bin.nii.gz"
-    heschl_mask = "/data2/azubaidi/ForrestGumpHearingLoss/BIDS_ForrGump/"\
-        + "derivatives/fmriprep/ROIs/HeschisGyrus/mni_Heschl_ROI.nii.gz"
     mean_scores = mean_img(scores_path)
     img = load_img(scores_path)
     data = img.dataobj
@@ -63,7 +66,8 @@ def plot_scores(scores_path,save_path,glassbrain_save,mask_path):
     _plot_helper(img.slicer[...,0],fold0_argmax_mni,'_fold0.png',title)
     title = 'Total %.3f %s fold %d' % (total_max, str(total_argmax_mni), total_argmax[3])
     _plot_helper(img.slicer[...,total_argmax[3]],total_argmax_mni,'_total.png',title)
-    
+
+
 def plot_avg_score(scores_path,mask_path,cond=None,offset=0):
     scores = load_img(scores_path)
     mask = joblib.load(mask_path)
@@ -78,7 +82,8 @@ def plot_avg_score(scores_path,mask_path,cond=None,offset=0):
     stds = [np.std(scores_fold_i[scores_fold_i>thresh]) for scores_fold_i in scores]
     plt.errorbar(np.arange(len(avgs))+offset,avgs,yerr=stds,linestyle='None',
                  marker='o',label=cond)
-    
+
+
 def plot_avg_score_per_fold(scores_path,mask_path,save_path,hist_save=None):
     print('Plotting avg score per fold',save_path)
     plot_avg_score(scores_path,mask_path)
@@ -105,7 +110,8 @@ def plot_avg_score_per_fold(scores_path,mask_path,save_path,hist_save=None):
 #    #    plt.show()
 #        plt.savefig(hist_save)
 #        plt.close()
-        
+
+
 def plot_avg_score_all_conditions(scores_paths,mask_paths,save_path):
     print('Plotting avg score all conditions',save_path)
     conds = ['CS','N4','S2']
@@ -119,7 +125,8 @@ def plot_avg_score_all_conditions(scores_paths,mask_paths,save_path):
 #    plt.show()
     plt.savefig(save_path)
     plt.close()
-    
+
+
 def plot_avg_score_all_conditions_plus_diffs(scores_paths,mask_paths,save_path):
     print('Plotting avg score all conditions plus diffs',save_path)
     conds = ['CS-CS','N4-N4','S2-S2','CS-N4','CS-S2']
@@ -133,7 +140,8 @@ def plot_avg_score_all_conditions_plus_diffs(scores_paths,mask_paths,save_path):
 #    plt.show()
     plt.savefig(save_path)
     plt.close()
-    
+
+
 def gather_files_and_plot_avg_scores():
     output_dirs = [
                    OUTPUT_BASE+'heschl/offset0/allstim/',
@@ -166,7 +174,6 @@ def gather_files_and_plot_avg_scores():
 
 
 def get_arg_highscore(scores_path,fold=0):
-    import nibabel as nib
     n1_img = nib.load(scores_path)
     data = n1_img.dataobj[...,fold]
     arg_highscore = np.argmax(data)
@@ -174,29 +181,16 @@ def get_arg_highscore(scores_path,fold=0):
 
 
 def get_total_arg_highscore(scores_path):
-    import nibabel as nib
     n1_img = nib.load(scores_path)
     data = n1_img.dataobj
     arg_highscore = np.argmax(data)
     return np.unravel_index(arg_highscore,data.shape)
 
 
-from encoding import product_moment_corr
-# def product_moment_corr(x,y):
-#     """ Product-moment correlation for two ndarrays x, y """
-#     from sklearn.preprocessing import StandardScaler
-#     x = StandardScaler().fit_transform(x)
-#     y = StandardScaler().fit_transform(y)
-#     n = x.shape[0]
-#     r = (1/(n-1))*(x*y).sum(axis=0)
-#     return r
-
-
 def plot_highest_score_bold_predicted_vs_actual(path_predicted,path_actual,arg_highscore,save_path,mask_path):
     print('Plotting',save_path)
     import nibabel as nib
     from scipy.stats import zscore
-    from nilearn.masking import unmask
 
     x, y, z, fold = arg_highscore
     # bold = []
@@ -278,11 +272,6 @@ def plot_first_pc_bold_predicted_vs_actual(path_predicted, path_actual, save_pat
     plt.close()
 
     from nilearn import plotting
-    from nilearn.masking import unmask
-    temporal_lobe_mask = "/data2/azubaidi/ForrestGumpHearingLoss/BIDS_ForrGump/" \
-                         + "derivatives/fmriprep/ROIs/TemporalLobeMasks/mni_Temporal_mask_ero5_bin.nii.gz"
-    heschl_mask = "/data2/azubaidi/ForrestGumpHearingLoss/BIDS_ForrGump/" \
-                  + "derivatives/fmriprep/ROIs/HeschisGyrus/mni_Heschl_ROI.nii.gz"
     mask = joblib.load(mask_path)
     first_pc = unmask(np.squeeze(pca.components_), mask[0])
 
@@ -315,8 +304,6 @@ def plot_first_pc_bold_predicted_vs_actual(path_predicted, path_actual, save_pat
 
 
 def plot_original_bold_spectrograms():
-    import nibabel as nib
-    import matplotlib.pyplot as plt
     from scipy.signal import spectrogram, periodogram, welch, hilbert
     from scipy.stats import zscore
 #    from nilearn.signal import clean
@@ -427,8 +414,6 @@ def plot_original_bold_spectrograms():
 nmel = 1
 #nmel = 48
 def get_max_coefs(ridges_path,mask_path,arg_highscore,scores_path=None):
-    import joblib
-    from nilearn.masking import unmask
     mask = joblib.load(mask_path)
     results = []
     for fold in range(6):
@@ -449,7 +434,6 @@ def get_max_coefs(ridges_path,mask_path,arg_highscore,scores_path=None):
 
 def plot_max_coefs(max_coefs,save_path):
     print('Plotting',save_path)
-    import matplotlib.pyplot as plt
 #    nmel = 48
 #     nmel_stride = 4
     # mel_frequencies = [100, 162, 224, 286, 348, 410, 472, 534, 596, 658, 721,
@@ -545,7 +529,6 @@ def plot_max_coef_diff(max_coefs,max_coefs_CS,save_path):
 
 def plot_coef_first_pc(save_path, ridges_path):
     print('Plotting', save_path)
-    import joblib
     from sklearn.decomposition import PCA
     n_folds = 0
     coefficients = []
@@ -580,7 +563,6 @@ def plot_coef_first_pc(save_path, ridges_path):
 
 def plot_mel_spectrogram(spec_path,save_path):
     print('Plotting',save_path)
-    import matplotlib.pyplot as plt
 #    nmel = 48
     nmel_stride = 4
     mel_frequencies = [100, 162, 224, 286, 348, 410, 472, 534, 596, 658, 721, 
@@ -609,9 +591,8 @@ def plot_mel_spectrogram(spec_path,save_path):
 #    plt.show()
     plt.close()
 
+
 def plot_lagged_stimulus_spectrograms(spec_path,save_path):
-    import matplotlib.pyplot as plt
-    import joblib
     print('Plotting',save_path)
 #    spectrogram = joblib.load(spec_path)
     x = joblib.load(spec_path)
@@ -672,12 +653,11 @@ def plot_lagged_stimulus_spectrograms(spec_path,save_path):
 #    plt.savefig(save_path+'_slope.svg')
 ##    plt.show()
 #    plt.close()
-    
+
+
 def plot_lagged_stimulus_one_column(spec_path,save_path):
-    import matplotlib.pyplot as plt
-    import joblib
     from scipy.signal import welch
-    print('Plotting',save_path)
+    print('Plotting', save_path)
     X = joblib.load(spec_path)
 #    print(X.shape)
 #    plt.plot(X[50])
@@ -691,8 +671,87 @@ def plot_lagged_stimulus_one_column(spec_path,save_path):
     plt.savefig(save_path)
 #    plt.show()
     plt.close()
-    
-if __name__=='__main__':
+
+
+def permutation_test_prep(perm_dir, save_permutation_path, scores_path, mask_path):
+    import fnmatch
+    perm_fns = fnmatch.filter(os.listdir(perm_dir), '*permutation*.pkl')
+    permutation_scores = []
+    for fn in perm_fns:
+        permutation_scores.append(joblib.load(perm_dir + fn))
+    permutation_scores = np.stack(permutation_scores, axis=1)
+    n_permutations = permutation_scores.shape[1]
+    joblib.dump(permutation_scores, save_permutation_path.format('s'))
+
+    scores = mean_img(scores_path)
+    mask = joblib.load(mask_path)
+    scores = apply_mask(scores, mask[0])
+    # score = np.mean(score_list, axis=1).reshape(-1, 1)
+    joblib.dump(scores, save_permutation_path.format('truescores'))
+    scores = scores.reshape(-1, 1)
+    pvalue = (np.sum(permutation_scores >= scores, axis=1) + 1.0) / (n_permutations + 1)
+    joblib.dump(pvalue, save_permutation_path.format('pval'))
+
+
+def permutation_test(perm_path, mask_path, save_path):
+    print('Plotting', save_path)
+    mask = joblib.load(mask_path)[0]
+    scores = joblib.load(perm_path.format('truescores'))
+    perm_all = joblib.load(perm_path.format('s'))
+    arg_highscore = np.argmax(scores)
+    # arg_highscore = 0
+    pval_orig = joblib.load(perm_path.format('pval'))
+
+    from nilearn import plotting
+    from matplotlib.patches import Rectangle
+
+    def _plot_pvals(pvals,save_suffix):
+        display = plotting.plot_glass_brain(pvals, threshold=0.00, colorbar=True,
+                                            display_mode='lzry', plot_abs=False)
+        display.add_contours(temporal_lobe_mask, filled=False, colors='m')
+        display.add_contours(heschl_mask, filled=False, colors='g')
+        # proxy artist trick to make legend
+        cont1 = Rectangle((0, 0), 1, 1, fc="magenta")
+        cont2 = Rectangle((0, 0), 1, 1, fc="green")
+        plt.legend([cont1, cont2], ['Temporal lobe', 'Heschl gyrus'])
+        plt.savefig(save_path + save_suffix)
+        plt.close()
+
+    n_permutations = perm_all.shape[1]
+    thresh = 1.0 / n_permutations
+    pval = pval_orig.copy()
+    pval[pval > thresh] = 0
+    pvals = unmask(pval, mask)
+    _plot_pvals(pvals, '.png')
+
+    pval = pval_orig.copy()
+    pval[pval < 1] = 0
+    pvals = unmask(pval, mask)
+    _plot_pvals(pvals, 'negativecorr.png')
+
+    fig, ax = plt.subplots(1)
+    ax.hist(perm_all[arg_highscore], bins=16)
+    ax.axvline(scores[arg_highscore], color='r', linestyle='-', label='Observed mean')
+    ax.set_xlabel('R score')
+    ax.set_ylabel('Count (permutations)')
+    plt.title(f'Highest correlation voxel, p={pval_orig[arg_highscore]:.3}')
+    plt.legend()
+    fig.tight_layout()
+    fig.savefig(save_path + 'hist.svg', format='svg')
+    plt.close()
+
+    fig, ax = plt.subplots(1)
+    ax.hist(pval_orig, bins=100)
+    ax.set_xlabel('p-value')
+    ax.set_ylabel('Count (Voxels)')
+    # plt.title(f'Highest correlation voxel, p={pval_orig[arg_highscore]:.3}')
+    # plt.legend()
+    fig.tight_layout()
+    fig.savefig(save_path + 'histpvals.svg', format='svg')
+    plt.close()
+
+
+if __name__ == '__main__':
     import time
     tic = time.time()
 #    gather_files_and_plot_avg_scores()
@@ -727,23 +786,26 @@ if __name__=='__main__':
 #                   OUTPUT_BASE+'temporal_lobe_mask/lagging0to-15.3_envelope_lassocv/',
 #                   OUTPUT_BASE+'temporal_lobe_mask/lagging0to-15.3_envelope_SAGsolver/'
 #                   OUTPUT_BASE+'temporal_lobe_mask/lagging0to-15.3_envelope80/',
-                  OUTPUT_BASE+'temporal_lobe_mask/lagging0to-15envelopezband/',
+#                   OUTPUT_BASE+'temporal_lobe_mask/lagging0to-15envelopezband/',
+                  OUTPUT_BASE+'temporal_lobe_mask/lagging0to-15.3_permutation_train_only/',
                    ]
-    subjects = ['09']
-    # conditions = ['N4']
+    subjects = ['10']
+    # subjects = ["04","05","06","07",'10']
+    # conditions = ['CS']
     conditions = ['CS','N4','S2']
     runs = ["02","03","04","05","06","07"]
-#    subjects = ['10']
 #     runs = ["02"]
-    do_scores = True
-    do_bold_predicted_vs_actual = True
-    do_max_coefs = True
-    do_timeseries_first_pc = True
-    do_coef_first_pc = True
-    do_avg_scores_per_fold = True
-    do_lagged_stim = True
+    do_scores = False
+    do_bold_predicted_vs_actual = False
+    do_max_coefs = False
+    do_timeseries_first_pc = False
+    do_coef_first_pc = False
+    do_avg_scores_per_fold = False
+    do_lagged_stim = False
     do_orig_stim = False
-    do_lagged_stim_one_column = True
+    do_lagged_stim_one_column = False
+    do_perm_test_prep = False
+    do_perm_test = True
     for output_dir in output_dirs:
         for sub in subjects:
             sub_dir = os.path.join(output_dir,f'sub-{sub}/')
@@ -757,8 +819,8 @@ if __name__=='__main__':
                     continue
                 bids_str = acq_dir + f'sub-{sub}_task-aomovie_acq-{acq}_desc-'
                 scores_path = bids_str + 'scores.nii.gz'
+                mask_path = bids_str + 'masks.pkl'
                 if do_scores:
-                    mask_path = bids_str + 'masks.pkl'
                     scores_save = bids_str + 'scores'
                     scores_glassbrain_save = bids_str + 'scoresglassbrain'
                     plot_scores(scores_path,scores_save,scores_glassbrain_save,mask_path)
@@ -767,7 +829,6 @@ if __name__=='__main__':
                     arg_highscore = get_total_arg_highscore(scores_path)
                 if do_bold_predicted_vs_actual:
                     bold_save = bids_str + 'boldprediction.svg'
-                    mask_path = bids_str + 'masks.pkl'
                     # bold_predicted = bids_str + 'boldprediction.nii.gz'
 #                     bold_actual = bids_str + 'boldpreprocessed.nii.gz'
                     bold_predicted = acq_dir + f'predicted_bold/sub-{sub}_task-aomovie_acq-{acq}_desc-boldpredicted'+'{0}.pkl'
@@ -776,7 +837,6 @@ if __name__=='__main__':
                                                                 arg_highscore,bold_save,mask_path)
                 if do_timeseries_first_pc:
                     bold_save = bids_str + '1stPC'
-                    mask_path = bids_str + 'masks.pkl'
                     # bold_predicted = bids_str + 'boldprediction.nii.gz'
 #                     bold_actual = bids_str + 'boldpreprocessed.nii.gz'
                     bold_predicted = acq_dir + f'predicted_bold/sub-{sub}_task-aomovie_acq-{acq}_desc-boldpredicted'+'{0}.pkl'
@@ -784,7 +844,6 @@ if __name__=='__main__':
                     plot_first_pc_bold_predicted_vs_actual(bold_predicted,bold_actual,bold_save,mask_path)
                 if do_max_coefs:
                     ridges_path = bids_str + 'ridgesfold{0}.pkl'
-                    mask_path = bids_str + 'masks.pkl'
                     max_coefs_save = bids_str + 'maxcoefsfold{0}'
                     # max_coefs_diff_save = bids_str + 'maxcoefsdiff.svg'
                     # max_coefs = get_max_coefs(ridges_path,mask_path,arg_highscore,scores_path=scores_path)
@@ -801,7 +860,6 @@ if __name__=='__main__':
                     first_pc_save = bids_str + 'coeffirstpc'
                     plot_coef_first_pc(first_pc_save, ridges_path)
                 if do_avg_scores_per_fold:
-                    mask_path = bids_str + 'masks.pkl'
                     r2_save = bids_str + 'scoresavg.svg'
 #                    hist_save = bids_str + 'r2hist.png'
                     plot_avg_score_per_fold(scores_path,mask_path,r2_save)
@@ -819,7 +877,7 @@ if __name__=='__main__':
                                                           allcond_save)
                 lagged_stim_dir = os.path.join(acq_dir,'lagged_stim/')
                 if not os.path.exists(lagged_stim_dir):
-                    os.mkdirs(lagged_stim_dir)
+                    os.makedirs(lagged_stim_dir)
                 if do_orig_stim:
                     stim_path = '/data2/azubaidi/ForrestGumpHearingLoss/BIDS_ForrGump/'\
                         +f'derivatives/fmriprep/sub-{sub}/ses-{acq}/func/'
@@ -850,6 +908,14 @@ if __name__=='__main__':
                         if not os.path.exists(lagged_stim_path.format(i)):
                             continue
                         plot_lagged_stimulus_one_column(lagged_stim_path.format(i),
-                                                          lagged_stim_save.format(i))              
+                                                          lagged_stim_save.format(i))
+                if do_perm_test_prep:
+                    perm_dir = acq_dir + 'permutation_test/'
+                    save_permutation_path = bids_str + 'permutation{0}.pkl'
+                    permutation_test_prep(perm_dir, save_permutation_path, scores_path, mask_path)
+                if do_perm_test:
+                    perm_path = bids_str + 'permutation{0}.pkl'
+                    save_path = bids_str + 'permutation'
+                    permutation_test(perm_path, mask_path, save_path)
     toc = time.time()
     print('\nElapsed time: {:.2f} s'.format(toc - tic))

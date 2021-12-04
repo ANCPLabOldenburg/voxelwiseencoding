@@ -2,6 +2,7 @@
 # -*- coding: utf-8 -*-
 import numpy as np
 
+
 class LeaveOneRunOutSplitter():
     """ Leave-one-run-out cross-validation splitter.
     

@@ -9,6 +9,7 @@ import json
 
 CONFIG_FILENAME = 'runconfig.json'
 
+
 def make_config():
     # Set values by of user variables standard to 'None'  
     dict_key_list = ['bids_dir','output_dir','sub','ses','task','run','scope',
@@ -24,7 +25,7 @@ def make_config():
     arg['subfolder'] = '/derivatives/fmriprep'
     #arg['bids_dir'] = '/data2/azubaidi/ForrestGumpHearingLoss/BIDS_ForrGump/derivatives/fmriprep'
     arg['output_dir'] = '/data2/azubaidi/ForrestGumpHearingLoss/BIDS_ForrGump/'\
-        +'derivatives/encoding_results/temporal_lobe_mask/lagging0to-15.3_testpvals/'
+        + 'derivatives/encoding_results/temporal_lobe_mask/lagging0to-15.3_permutation_train_only/'
 #    arg['output_dir'] = '/data2/fyilmaz/simulated_data/output_without_noise/'
     # The label(s) of the participant(s) that should be analyzed. The label corresponds to
     # sub-<participant_label> from the BIDS spec (so it does not include "sub-"). 
@@ -43,11 +44,11 @@ def make_config():
     # to label in task-<label> in BIDS naming.
     arg['task'] = ['aomovie'] #BIDS
 #    arg['rec'] = ['audio'] #BIDS
-    arg['rec'] = ['audioenv4k'] #BIDS
-    # arg['rec'] = ['audioenv80'] #BIDS
+#     arg['rec'] = ['audioenv4k'] #BIDS
+    arg['rec'] = ['audioenvzband'] #BIDS
 #    arg['rec'] = ['noise'] #BIDS
-#    arg['acq'] = ['S2'] #BIDS
-#    arg['acq'] = ['N4','S2'] #BIDS
+#     arg['acq'] = ['CS','S2'] #BIDS
+    # arg['acq'] = ['N4'] #BIDS
     arg['acq'] = ['CS','N4','S2'] #BIDS
     # arg['acq'] = ['CS'] #BIDS
     arg['run'] = ["02","03","04","05","06","07"] #BIDS
@@ -78,8 +79,18 @@ def make_config():
     arg['confounds_extension'] = '.tsv'
     arg['confounds_to_exclude'] = ['rot_x','rot_y','rot_z','trans_x','trans_y',
                                    'trans_z','csf','white_matter']
-    arg['save_lagged_stim'] = True
-    arg['save_preprocessed_bold'] = True
+    arg['save_lagged_stim'] = False
+    arg['save_preprocessed_bold'] = False
+    # When running permutation tests with many or all cores, always remember to lower your process priority by
+    # either starting the script with "nice -n 19 python run_with_config.py" or when the process is already running
+    # "renice 19 -p PID" where PID is the process ID that you can see in top/htop
+    # (see https://wiki.ubuntuusers.de/nice/). Otherwise you will hog all the CPU resources and make working on the
+    # server impossible for others.
+    # If memory usage is an issue, lower n_jobs. Each job might still be able to use multithreading internally,
+    # if the backend of the used solver supports it.
+    arg['permutation_test'] = False
+    # permutation_params is ignored when permutation_test is False
+    arg['permutation_params'] = {'n_permutations': 2000, 'permutation_start_seed': 0, 'n_jobs': 16}
 
 #    arg['mask'] = 'epi'
 #    arg['mask'] = arg['bids_dir'] + '/derivatives/fmriprep/ROIs/HeschisGyrus/mni_Heschl_ROI.nii.gz'

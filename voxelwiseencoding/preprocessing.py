@@ -14,7 +14,10 @@ from nilearn.signal import clean
 from nilearn.image import resample_img
 
 
-# Cell
+memory = joblib.Memory(location='/data2/lmichalke/joblib/')
+
+
+@memory.cache
 def preprocess_bold_fmri(bold, mask=None, detrend=True, standardize='zscore',
                          confounds=None, **kwargs):
     """Preprocesses BOLD data and returns ndarray of preprocessed data
@@ -52,7 +55,6 @@ def preprocess_bold_fmri(bold, mask=None, detrend=True, standardize='zscore',
                      confounds=confounds, **kwargs), mask
 
 
-# Cell
 def get_remove_idx(lagged_stimulus, remove_nan=True):
     '''Returns indices of rows in lagged_stimulus to remove'''
     if remove_nan is True:
@@ -66,8 +68,6 @@ def get_remove_idx(lagged_stimulus, remove_nan=True):
     else:
         raise ValueError('remove_nan needs to be either True, False, or a float between 0 and 1.')
 
-
-# Cell
 
 def make_lagged_stimulus(stimulus, n_lags, fill_value=np.nan):
     '''Make lagged stimulus by augmenting the stimulus matrix and cutting samples from begin and end.
@@ -93,7 +93,6 @@ def make_lagged_stimulus(stimulus, n_lags, fill_value=np.nan):
     return np.hstack([stimulus] + lagged_reps)
 
 
-# Cell
 def generate_lagged_stimulus(stimulus, fmri_samples, TR, stim_TR,
                              lag_time=None, start_time=0., offset_stim=0.,
                              fill_value=np.nan):
@@ -194,7 +193,7 @@ def generate_lagged_stimulus(stimulus, fmri_samples, TR, stim_TR,
     return stimulus
 
 
-# Cell
+@memory.cache
 def make_X_Y(stimuli, fmri, TR, stim_TR, lag_time=6.0, stim_start_times=None,
              offset_stim=0., fill_value=np.nan, remove_nans=True,
              save_lagged_stim_path=None, save_bold_path=None):
