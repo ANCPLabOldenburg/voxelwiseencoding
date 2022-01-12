@@ -10,8 +10,8 @@ import numpy as np
 import joblib
 import matplotlib.pyplot as plt
 import nibabel as nib
-from nilearn.image import load_img, mean_img, coord_transform
-from nilearn.masking import apply_mask, unmask
+from nilearn.image import load_img, mean_img, coord_transform, resample_img
+from nilearn.masking import apply_mask, unmask, intersect_masks
 from encoding import product_moment_corr
 
 OUTPUT_BASE = '/data2/azubaidi/ForrestGumpHearingLoss/BIDS_ForrGump/'\
@@ -22,12 +22,39 @@ heschl_mask = "/data2/azubaidi/ForrestGumpHearingLoss/BIDS_ForrGump/" \
               + "derivatives/fmriprep/ROIs/HeschisGyrus/mni_Heschl_ROI.nii.gz"
 
 
-def plot_scores(scores_path,save_path,glassbrain_save,mask_path):
+def plot_scores(scores_path,save_path,glassbrain_save,mask_path, select_voxels_by_pval=False, perm_path=None, roi_mask=None):
     print('Plotting',save_path)
     from nilearn import plotting
-    mask = joblib.load(mask_path)
+    mask = joblib.load(mask_path)[0]
     mean_scores = mean_img(scores_path)
     img = load_img(scores_path)
+    if roi_mask:
+        roi_mask = resample_img(roi_mask, mask._affine, mask.shape, interpolation='nearest')
+        roi_mask = intersect_masks([mask, roi_mask])
+    if select_voxels_by_pval:
+        perm_all = joblib.load(perm_path.format('s'))
+        pval = joblib.load(perm_path.format('pval'))
+        selection_mask = mask
+        if roi_mask:
+            pval = unmask(pval, mask)
+            pval = apply_mask(pval, roi_mask)
+            selection_mask = roi_mask
+        n_permutations = perm_all.shape[1]
+        thresh = 1.0 / n_permutations
+        pval_mask = pval > thresh
+
+        mean_scores = apply_mask(mean_scores, selection_mask)
+        mean_scores[pval_mask] = 0
+        mean_scores = unmask(mean_scores, selection_mask)
+        img = apply_mask(img, selection_mask)
+        img[np.broadcast_to(pval_mask, (img.shape[0], pval_mask.shape[0]))] = 0
+        img = unmask(img, selection_mask)
+    elif roi_mask:
+        mean_scores = apply_mask(mean_scores, roi_mask)
+        mean_scores = unmask(mean_scores, roi_mask)
+        img = apply_mask(img, roi_mask)
+        img = unmask(img, roi_mask)
+
     data = img.dataobj
     avg_max = np.max(mean_scores.dataobj)
     avg_argmax = np.unravel_index(np.argmax(mean_scores.dataobj), mean_scores.shape)
@@ -35,9 +62,9 @@ def plot_scores(scores_path,save_path,glassbrain_save,mask_path):
     total_argmax = np.unravel_index(np.argmax(data), data.shape)
     fold0_max = np.max(data[...,0])
     fold0_argmax = np.unravel_index(np.argmax(data[...,0]), data.shape[:-1])
-    avg_argmax_mni = coord_transform(*avg_argmax, mask[0].affine)
-    fold0_argmax_mni = coord_transform(*fold0_argmax, mask[0].affine)
-    total_argmax_mni = coord_transform(*total_argmax[:3], mask[0].affine)
+    avg_argmax_mni = coord_transform(*avg_argmax, mask.affine)
+    fold0_argmax_mni = coord_transform(*fold0_argmax, mask.affine)
+    total_argmax_mni = coord_transform(*total_argmax[:3], mask.affine)
     
     def _plot_helper(scores,markers,save_suffix,title):
         thresh = 0.0 #0.05
@@ -674,6 +701,8 @@ def plot_lagged_stimulus_one_column(spec_path,save_path):
 
 
 def permutation_test_prep(perm_dir, save_permutation_path, scores_path, mask_path):
+    # if os.path.exists(save_permutation_path.format('s')):
+    #     return
     import fnmatch
     perm_fns = fnmatch.filter(os.listdir(perm_dir), '*permutation*.pkl')
     permutation_scores = []
@@ -795,7 +824,11 @@ if __name__ == '__main__':
     conditions = ['CS','N4','S2']
     runs = ["02","03","04","05","06","07"]
 #     runs = ["02"]
-    do_scores = False
+    select_voxels_by_pval = True # Only works when folder has permutation test data.
+    # roi_mask = None
+    roi_mask = heschl_mask
+    # roi_mask = temporal_lobe_mask
+    do_scores = True
     do_bold_predicted_vs_actual = False
     do_max_coefs = False
     do_timeseries_first_pc = False
@@ -805,7 +838,7 @@ if __name__ == '__main__':
     do_orig_stim = False
     do_lagged_stim_one_column = False
     do_perm_test_prep = False
-    do_perm_test = True
+    do_perm_test = False
     for output_dir in output_dirs:
         for sub in subjects:
             sub_dir = os.path.join(output_dir,f'sub-{sub}/')
@@ -820,10 +853,16 @@ if __name__ == '__main__':
                 bids_str = acq_dir + f'sub-{sub}_task-aomovie_acq-{acq}_desc-'
                 scores_path = bids_str + 'scores.nii.gz'
                 mask_path = bids_str + 'masks.pkl'
+                save_permutation_path = None
+
+                if do_perm_test_prep or select_voxels_by_pval:
+                    perm_dir = acq_dir + 'permutation_test/'
+                    save_permutation_path = bids_str + 'permutation{0}.pkl'
+                    permutation_test_prep(perm_dir, save_permutation_path, scores_path, mask_path)
                 if do_scores:
                     scores_save = bids_str + 'scores'
                     scores_glassbrain_save = bids_str + 'scoresglassbrain'
-                    plot_scores(scores_path,scores_save,scores_glassbrain_save,mask_path)
+                    plot_scores(scores_path,scores_save,scores_glassbrain_save,mask_path, select_voxels_by_pval, save_permutation_path, roi_mask)
                 if do_bold_predicted_vs_actual or do_max_coefs or do_coef_first_pc:
                     # arg_highscore = get_arg_highscore(scores_path)
                     arg_highscore = get_total_arg_highscore(scores_path)
@@ -909,10 +948,6 @@ if __name__ == '__main__':
                             continue
                         plot_lagged_stimulus_one_column(lagged_stim_path.format(i),
                                                           lagged_stim_save.format(i))
-                if do_perm_test_prep:
-                    perm_dir = acq_dir + 'permutation_test/'
-                    save_permutation_path = bids_str + 'permutation{0}.pkl'
-                    permutation_test_prep(perm_dir, save_permutation_path, scores_path, mask_path)
                 if do_perm_test:
                     perm_path = bids_str + 'permutation{0}.pkl'
                     save_path = bids_str + 'permutation'
