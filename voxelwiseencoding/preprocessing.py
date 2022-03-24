@@ -55,6 +55,19 @@ def preprocess_bold_fmri(bold, mask=None, detrend=True, standardize='zscore',
                      confounds=confounds, **kwargs), mask
 
 
+def generate_artificial_bold():
+    """ TO IMPLEMENT
+    if parameters / return values change, also change calling site (line 238 in process_bids.py)
+
+    Parameters
+
+    Returns
+        list where each element is one run / ndarray of artificial bold data in (samples, voxels)
+    """
+
+    return None
+
+
 def get_remove_idx(lagged_stimulus, remove_nan=True):
     '''Returns indices of rows in lagged_stimulus to remove'''
     if remove_nan is True:
@@ -193,7 +206,6 @@ def generate_lagged_stimulus(stimulus, fmri_samples, TR, stim_TR,
     return stimulus
 
 
-@memory.cache
 def make_X_Y(stimuli, fmri, TR, stim_TR, lag_time=6.0, stim_start_times=None,
              offset_stim=0., fill_value=np.nan, remove_nans=True,
              save_lagged_stim_path=None, save_bold_path=None):

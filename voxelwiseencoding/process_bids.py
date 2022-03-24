@@ -1,4 +1,4 @@
-from preprocessing import preprocess_bold_fmri, make_X_Y
+from preprocessing import preprocess_bold_fmri, make_X_Y, generate_artifical_bold
 from encoding import get_model_plus_scores
 import json
 import numpy as np
@@ -233,25 +233,29 @@ def run_model_for_subject(bold_files, bold_json, stim_tsv, stim_json, **kwargs):
     else:
         mask = load_img(args['mask'])
 
-    # do BOLD preprocessing      
-    preprocessed_bold = []
-    masks = []
-    if args.get('remove_confounds'):
-        import pandas as pd
-        for bold_file, confound_tsv in zip(bold_files, args['confound_tsvs']):
-            confounds = pd.read_csv(confound_tsv, sep='\t')
-            confounds = confounds[args['confounds_to_exclude']]
-            prep_bold, resampled_mask = preprocess_bold_fmri(bold_file, mask=mask,
-                                                             confounds=confounds,
-                                                             **bold_prep_params)
-            preprocessed_bold.append(prep_bold)
-            masks.append(resampled_mask)
+    # do BOLD preprocessing
+    if args.get('use_artificial_bold'):
+        preprocessed_bold = generate_artifical_bold()
+        masks = []
     else:
-        for bold_file in bold_files:
-            prep_bold, resampled_mask = preprocess_bold_fmri(bold_file, mask=mask,
-                                                             **bold_prep_params)
-            preprocessed_bold.append(prep_bold)
-            masks.append(resampled_mask)
+        preprocessed_bold = []
+        masks = []
+        if args.get('remove_confounds'):
+            import pandas as pd
+            for bold_file, confound_tsv in zip(bold_files, args['confound_tsvs']):
+                confounds = pd.read_csv(confound_tsv, sep='\t')
+                confounds = confounds[args['confounds_to_exclude']]
+                prep_bold, resampled_mask = preprocess_bold_fmri(bold_file, mask=mask,
+                                                                 confounds=confounds,
+                                                                 **bold_prep_params)
+                preprocessed_bold.append(prep_bold)
+                masks.append(resampled_mask)
+        else:
+            for bold_file in bold_files:
+                prep_bold, resampled_mask = preprocess_bold_fmri(bold_file, mask=mask,
+                                                                 **bold_prep_params)
+                preprocessed_bold.append(prep_bold)
+                masks.append(resampled_mask)
 
     # load stimuli and append their time series 
     stim_meta = []

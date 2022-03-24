@@ -447,6 +447,7 @@ def plot_max_coefs(ridges_path, mask_path, arg_highscore, save_path):
 
         print('Plotting', save_path.format(fold))
         ridges = joblib.load(filename)
+        # print(ridges.alpha_)
         coefs = unmask(ridges.coef_.T, mask[fold])
         max_coefs = coefs.dataobj[arg_highscore[:3]]
         if use_mel_spec_features:
@@ -762,17 +763,20 @@ if __name__ == '__main__':
         #                   OUTPUT_BASE+'temporal_lobe_mask/lagging0to-15.3_envelope80/',
         #                   OUTPUT_BASE+'temporal_lobe_mask/lagging0to-15envelopezband/',
         #                   OUTPUT_BASE+'temporal_lobe_mask/lagging0to-15.3_permutation_train_only/',
-        OUTPUT_BASE + 'temporal_lobe_mask/lagging0to-15melspec/',
+        # OUTPUT_BASE + 'temporal_lobe_mask/lagging0to-15melspec/',
         # OUTPUT_BASE + 'temporal_lobe_mask/lagging0to-15mps/',
+        # OUTPUT_BASE + 'temporal_lobe_mask/lagging0to-15.3_test_alphas2/',
+        # OUTPUT_BASE + 'temporal_lobe_mask/lagging0to-15.3_test_alpha_0.02/',
+        OUTPUT_BASE + 'temporal_lobe_mask/lagging0to-15.3_test_alpha_1e6/',
     ]
     subjects = ['10']
     # subjects = ["04","05","06","07",'10']
-    # conditions = ['S2']
+    # conditions = ['CS']
     conditions = ['CS', 'N4', 'S2']
     runs = ["02", "03", "04", "05", "06", "07"]
     #     runs = ["02"]
 
-    use_mel_spec_features = True
+    use_mel_spec_features = False
     n_mel = 32 if use_mel_spec_features else 1
     mel_frequencies = [100, 162, 224, 286, 348, 410, 472, 534, 596, 658, 721,
                        783, 845, 907, 969, 1032, 1100, 1173, 1251, 1333, 1421,
@@ -785,10 +789,10 @@ if __name__ == '__main__':
     # roi_mask = heschl_mask
     # roi_mask = temporal_lobe_mask
 
-    do_scores = False
-    do_bold_predicted_vs_actual = False
+    do_scores = True
+    do_bold_predicted_vs_actual = True
     do_max_coefs = True
-    do_timeseries_first_pc = False
+    do_timeseries_first_pc = True
     do_coef_first_pc = True
     do_avg_scores_per_fold = False
     do_lagged_stim = False
@@ -829,7 +833,7 @@ if __name__ == '__main__':
                     bold_save = bids_str + 'boldprediction.svg'
                     # bold_predicted = bids_str + 'boldprediction.nii.gz'
                     #                     bold_actual = bids_str + 'boldpreprocessed.nii.gz'
-                    bold_predicted = acq_dir + f'predicted_bold/sub-{sub}_task-aomovie_acq-{acq}_desc-boldpredicted' + '{0}.pkl '
+                    bold_predicted = acq_dir + f'predicted_bold/sub-{sub}_task-aomovie_acq-{acq}_desc-boldpredicted' + '{0}.pkl'
                     bold_actual = acq_dir + f'preprocessed_bold/sub-{sub}_task-aomovie_acq-{acq}_desc-boldpreprocessed' + '{0}.pkl'
                     plot_highest_score_bold_predicted_vs_actual(bold_predicted, bold_actual,
                                                                 arg_highscore, bold_save, mask_path)
