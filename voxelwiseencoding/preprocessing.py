@@ -319,6 +319,7 @@ def make_X_Y(stimuli, fmri, TR, stim_TR, lag_time=6.0, stim_start_times=None,
         if remove_nans:
             remove_idx = get_remove_idx(stimulus, remove_nans)
             stimulus = np.delete(stimulus, remove_idx, axis=0)
+            remove_idx = remove_idx[np.where(remove_idx < frmi_run.shape[0])]
             fmri_run = np.delete(fmri_run, remove_idx, axis=0)
 
         # remove fmri samples recorded after stimulus has ended
